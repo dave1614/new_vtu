@@ -11,15 +11,21 @@ class VtuTransaction extends Model
 
     protected $fillable = [
         "user_id",
+        "service",
+        "profit",
         "type",
         "sub_type",
         "amount",
+        "amount_debited",
         "number",
         "response",
+        "discount",
+        "upline_percentage",
+        "upline_generations",
         "order_id",
         "approved",
         "refunded",
         "date",
         "time",
-    ];  
+    ];
 }

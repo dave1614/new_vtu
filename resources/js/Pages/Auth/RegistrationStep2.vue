@@ -452,7 +452,7 @@ if (props.balance <= 0){
 
         <div class="px-5 py-4">
           <div class="logo-icon mt-[10px] my-5">
-            <span class=" font-bold text-xl">Cosrosmos</span>
+            <span class=" font-bold text-xl">KetexPay</span>
           </div>
 
           <div v-if="balance > 0" class="">

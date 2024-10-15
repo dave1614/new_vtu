@@ -29,7 +29,7 @@
   padding: 0;
 }
 
- 
+
 
 .network-card img {
   height: 100%;

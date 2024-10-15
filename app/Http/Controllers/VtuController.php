@@ -6,6 +6,7 @@ use App\Functions\UsefulFunctions;
 use App\Models\Country;
 use App\Models\EducationalPlan;
 use App\Models\User;
+use App\Models\VtuPlatform;
 use App\Models\VtuTransaction;
 use App\Rules\EducationalServiceRule;
 use Illuminate\Http\Request;
@@ -18,12 +19,54 @@ class VtuController extends Controller
     public $CLUB_USERID;
     public $CLUB_APIKEY;
 
+    public $networks;
+    public $tvs;
+    public $discos;
+    public $sms_charge;
+
     public function __construct()
     {
         $this->functions = new UsefulFunctions();
         $this->CLUB_USERID = env("CLUB_USERID");
         $this->CLUB_APIKEY = env("CLUB_APIKEY");
+
+        $this->sms_charge = 15.00;
+
+        $this->networks = ['mtn', 'glo', 'airtel', '9mobile'];
+        $this->tvs = ['dstv', 'gotv', 'startimes'];
+        $this->discos = ['abuja', 'eko', 'enugu', 'ibadan', 'ikeja', 'jos', 'kaduna', 'kano', 'phc'];
     }
+
+    public function viewElectricityReceipt(Request $request, VtuTransaction $transaction){
+        $user = Auth::user();
+        $props['user'] = $user;
+
+        // return $transaction;
+
+        $props['details'] = $transaction;
+        $props['APP_NAME'] = env('APP_NAME');
+
+        return Inertia::render('Vtu/ElectricityReceipt',$props);
+    }
+
+    public function loadCableTvPage(Request $request){
+        $user = Auth::user();
+        $props['user'] = $user;
+
+        $tvs = [];
+        for($i = 0; $i < count($this->tvs); $i++){
+            $tv = $this->tvs[$i];
+            $tvs[$i] = [
+                'name' => $tv,
+                'image' => "/images/{$tv}_logo.jpg",
+                'discount' => $this->functions->getDiscountForCableTvByNetwork($tv),
+            ];
+        }
+        $props['tvs'] = $tvs;
+
+        return Inertia::render('Vtu/CableTV',$props);
+    }
+
 
     public function buyEducationalVoucherVtu(Request $request)
     {
@@ -39,7 +82,7 @@ class VtuController extends Controller
         $response_arr = ['success' => false, 'messages' => '', 'insuffecient_funds' => false, 'epins' => '', 'invalid_amount' => false, 'invalid_recipient' => false, 'error_message' => '', 'platform' => ''];
 
         if($request->has('quantity')){
-            
+
             $request->validate([
                 'voucher_type' => ['required', 'in:waec,neco', new EducationalServiceRule],
                 'quantity' => 'required|numeric|min:1|max:20',
@@ -47,9 +90,9 @@ class VtuController extends Controller
 
             $type = $request->voucher_type;
 
-            
+
             $vtu_platform = $this->functions->getVtuPlatformToUse('educational', $type);
-            
+
             if ($vtu_platform == "payscribe") {
 
                 $phone = $user->phone;
@@ -92,6 +135,7 @@ class VtuController extends Controller
                                         $epins = $response->message->details->pins;
                                         $form_array = array(
                                             'user_id' => $user_id,
+                                            'service' => 'payscribe',
                                             'type' => 'educational',
                                             'sub_type' => $type,
                                             'date' => $date,
@@ -157,6 +201,7 @@ class VtuController extends Controller
 
                                         $form_array = array(
                                             'user_id' => $user_id,
+                                            'service' => 'clubkonnect',
                                             'type' => 'educational',
                                             'sub_type' => $type,
                                             'date' => $date,
@@ -179,12 +224,12 @@ class VtuController extends Controller
                     }
                 }
             }
-            
+
         }
 
 
-       
-    
+
+
 
 
         return back()->with('data', $response_arr);
@@ -209,7 +254,7 @@ class VtuController extends Controller
             }
 
 
-            
+
             $url = "https://topups.reloadly.com/topups/". $order_id."/status";
             $use_post = false;
 
@@ -225,7 +270,7 @@ class VtuController extends Controller
 
 
                         // var_dump($response->message->details);
-                        
+
                         $response_arr['success'] = true;
 
 
@@ -234,7 +279,7 @@ class VtuController extends Controller
                         $recipientPhone = $response->transaction->recipientPhone;
                         $amount = $response->transaction->requestedAmount;
                         $network = $response->transaction->operatorName;
-                        
+
 
 
 
@@ -243,7 +288,7 @@ class VtuController extends Controller
                         $response_arr['messages'] .= 'Transaction Status: <em class="text-primary">SUCCESSFUL</em><br>';
 
 
-                       
+
 
                         // $response_arr['messages'] .= 'Amount: <em class="text-primary">' . number_format($amount,2) . '</em><br>';
 
@@ -257,7 +302,7 @@ class VtuController extends Controller
         return back()->with('data', $response_arr);
     }
 
-    
+
     public function reloadlyRechargeRequest(Request $request)
     {
         $date = date("j M Y");
@@ -283,19 +328,19 @@ class VtuController extends Controller
         $amount = $request->amount;
         if ($amount <= $user_total_amount) {
 
-            
+
             $phone = $request->phone_number;
-            
+
             $amount_to_debit_user = $amount;
 
             $phone_code = $user->phone_code;
-            
+
             $country = Country::find($user->country_id);
             // return $country;
             $country_id = $country->id;
             $countryCode = $country->code;
             $operatorId = $this->functions->getReloadlyOperatorId($phone_code, $phone, $country_id);
-            
+
             $useLocalAmount = false;
             $phone_number = $this->functions->returnInterNumber($phone_code, $phone);
 
@@ -316,7 +361,7 @@ class VtuController extends Controller
             $accept = 'application/com.reloadly.topups-v1+json';
 
             $response = $this->functions->reloadlyCurl($url, $use_post, $post_data, $accept);
-            
+
             // return $response;
 
 
@@ -332,6 +377,7 @@ class VtuController extends Controller
                                 $form_array = array(
                                     'reloadly' => 1,
                                     'user_id' => $user_id,
+                                    'service' => 'reloadly',
                                     'type' => 'airtime',
                                     'sub_type' => 'reloadly',
                                     'number' => $phone_number,
@@ -349,7 +395,7 @@ class VtuController extends Controller
                     }
                 }
             }
-             
+
         } else {
             $response_arr['insuffecient_funds'] = true;
         }
@@ -357,7 +403,7 @@ class VtuController extends Controller
 
         return back()->with('data', $response_arr);
     }
-   
+
 
     public function buyEminenceEducationalVoucherVtu(Request $request)
     {
@@ -415,7 +461,7 @@ class VtuController extends Controller
                     $request->validate($validationRules);
 
 
-                    
+
                     $type = $request->voucher_type;
                     $quantity = 1;
 
@@ -462,6 +508,7 @@ class VtuController extends Controller
                                         $pin = $response->data->pin;
                                         $form_array = array(
                                             'user_id' => $user_id,
+                                            'service' => 'eminence',
                                             'type' => 'e-pin',
                                             'sub_type' => 'educational_voucher_epin',
 
@@ -481,14 +528,14 @@ class VtuController extends Controller
                     } else {
                         $response_arr['insuffecient_funds'] = true;
                     }
-                    
+
                 }
             }
         }
 
-       
+
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function showEducationalVouchersPage(Request $request){
@@ -498,7 +545,7 @@ class VtuController extends Controller
 
         $epin_types = EducationalPlan::all();
         if ($epin_types->count() > 0) {
-            
+
             $i = 0;
 
             foreach ($epin_types as $row) {
@@ -506,7 +553,7 @@ class VtuController extends Controller
                 $name = $row->network;
 
                 $vtu_platform = $this->functions->getVtuPlatformToUse("educational", $name);
-                
+
 
                 if ($name == "waec") {
                     $i++;
@@ -515,7 +562,7 @@ class VtuController extends Controller
                     $row->image = "/images/west-african-examinations-council-waec-logo.jpg";
                     $product_id = $vtu_platform == "clubkonnect" ? "waecdirect" : "waec";
                     $old_price = $vtu_platform == "clubkonnect" ? $this->functions->getPackageAmountForWaecClub('waec', $product_id) : $this->functions->getPayscribeVtuEducationalPlanCostByProductId('waec', $product_id);
-                    
+
                     $row->price = $this->functions->getEducationalPlanNewPrice($name, $vtu_platform, $product_id, $old_price);
                 } else if ($name == "neco") {
                     $i++;
@@ -526,15 +573,15 @@ class VtuController extends Controller
                     $product_id = "neco";
                     $old_price = $this->functions->getPayscribeVtuEducationalPlanCostByProductId('neco', $product_id);
                     $row->price = $this->functions->getEducationalPlanNewPrice($name, $vtu_platform, $product_id, $old_price);
-                } 
+                }
             }
             $props['voucher_types'] = $epin_types;
             // return $props['voucher_types'];
             return Inertia::render('Vtu/EducationalVouchers', $props);
-                
+
         }
 
-        
+
     }
 
     public function trackPayscribeEducationalEpin(Request $request)
@@ -661,15 +708,15 @@ class VtuController extends Controller
         $time = date("h:i:sa");
         $user = Auth::user();
         // return json_encode($post_data);
-        
+
         $user_id = $user->id;
-        
+
         $response_arr = ['success' => false,'messages' => ''];
         if(isset($request->show_records) && isset($request->order_id)){
             $order_id = $request->order_id;
-            
-            
-            
+
+
+
             $url = "https://api.payscribe.ng/api/v1/report?trans_id=".$order_id;
             $use_post = true;
 
@@ -680,14 +727,14 @@ class VtuController extends Controller
                 $response = json_decode($response);
                 if(is_object($response)){
                     if($response->status){
-                            
+
                         // var_dump($response->message->details);
                         $details = $response->message->details;
                         $response_arr['success'] = true;
 
                         $description = $details->description;
-                        
-                        
+
+
                         $amount = $details->amount;
                         $date_initiated = $details->date_initiated;
                         $transaction_status = $details->transaction_status;
@@ -716,10 +763,10 @@ class VtuController extends Controller
                         if(isset($details->data)){
                             $data = $details->data;
                         }
-                        
+
 
                         if(!is_null($data)){
-                        
+
                             $type = $this->functions->getVtuTransactionParamByOrderId("type",$order_id);
                             if($type == "electricity"){
                                 if(isset($data->MeterType)){
@@ -732,32 +779,115 @@ class VtuController extends Controller
                                         }
                                     }
                                 }
-                                
+
                             }else if($type == "data"){
 
                             }
                         }
 
-                        
+
                         // $response_arr['messages'] .= 'Amount: <em class="text-primary">' . number_format($amount,2) . '</em><br>';
                         $response_arr['messages'] .= 'Date Initiated: <em class="text-primary">' .$date_initiated . '</em><br>';
                         $response_arr['messages'] .= 'Description: <em class="text-primary">' . $description . '</em><br>';
-                        
-                        
+
+
                     }
                 }
-            }   
+            }
 
-            
-            
+
+
         }
-            
 
-        
+
+
         return back()->with('data',$response_arr);
-        
+
     }
 
+    public function trackBuyPowerVtuOrder(Request $request)
+    {
+        $date = date("j M Y");
+        $time = date("h:i:sa");
+        $user = Auth::user();
+        // return json_encode($post_data);
+
+        $user_id = $user->id;
+
+        $response_arr = ['success' => false, 'messages' => ''];
+        if (isset($request->show_records) && isset($request->order_id)) {
+            $order_id = $request->order_id;
+            $order_id_cut = substr($order_id, 0, 2);
+
+            if ($order_id_cut == "BP") {
+
+
+                $url = "https://api.buypower.ng/v2/transaction/" . $order_id;
+                $use_post = false;
+
+                $response = $this->functions->buyPowerVtuCurl($url, $use_post, $post_data = []);
+                // return $response;
+
+                if ($this->functions->isJson($response)) {
+                    $response = json_decode($response);
+                    if(is_object($response)){
+                        if(isset($response->result)){
+
+                            // var_dump($response->message->details);
+                            $details = $response->result->data;
+                            $response_arr['success'] = true;
+
+                            $vtu_transaction = VtuTransaction::where('order_id', $order_id)->first();
+                            if(!is_null($vtu_transaction)){
+                                if($vtu_transaction->profit == 0.00){
+                                    $purchase_response = json_decode($vtu_transaction->response);
+                                    if($purchase_response->status == false){
+                                        $vtu_transaction->response = json_encode($response->result);
+                                        $vtu_transaction->save();
+
+                                        $this->functions->fixGainAndSaleRecordsForVtu($vtu_transaction->id);
+                                    }
+                                }
+                            }
+
+
+
+                            $token = $details->token;
+                            $amount = $details->vendAmount;
+                            $disco = $details->disco;
+
+                            $units = $details->units;
+                            $refunded_status = $this->functions->getVtuTransactionParamByOrderId("refunded",$order_id);
+                            $table_id = $this->functions->getVtuTransactionParamByOrderId("id",$order_id);
+
+
+
+
+
+                            $response_arr['messages'] .= 'Transaction Status: <em class="text-primary">Successful</em><br>';
+
+
+                            $response_arr['messages'] .= 'Disco: <em class="text-primary">' . $disco . '</em><br>';
+                            $response_arr['messages'] .= 'Amount: <em class="text-primary">' . number_format($amount,2) . '</em><br>';
+                            $response_arr['messages'] .= 'Units: <em class="text-primary">' . $units . '</em><br>';
+
+                            $response_arr['messages'] .= 'Meter Token: <em class="text-primary">' . $token . '</em><br>';
+
+
+                        }else{
+                            $response_arr['success'] = true;
+                            // if(!$response->status){
+                                $response_arr['messages'] .= $response->message;
+                            // }
+                        }
+                    }
+                }
+            }
+        }
+
+
+        return back()->with('data', $response_arr);
+    }
 
     public function trackEminenceVtuOrder(Request $request)
     {
@@ -903,7 +1033,7 @@ class VtuController extends Controller
 
 
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function userVtuHistoryPage(Request $request)
@@ -912,7 +1042,7 @@ class VtuController extends Controller
         $user = User::find($user->id);
         $props['user'] = $user;
 
-        
+
 
 
         $page = empty($page) ? 1 : $page;
@@ -948,7 +1078,7 @@ class VtuController extends Controller
 
         $props['history'] = $history;
         $props['length'] = $length;
-        
+
         $props['type'] = $request->query('type') ? $request->query('type') : NULL;
         $props['sub_type'] = $request->query('sub_type') ? $request->query('sub_type') : NULL;
         $props['order_id'] = $request->query('order_id') ? $request->query('order_id') : NULL;
@@ -972,17 +1102,17 @@ class VtuController extends Controller
         $user = Auth::user();
         $post_data = (object) $request->input();
         // return json_encode($post_data);
-        
+
         $user_id = $user->id;
-        
-            
-        
+
+
+
         $response_arr = ['success' => false,'messages' => '','insuffecient_funds' => false];
         if(isset($request->selected_plan)){
             $validationRules = [
                 'router_service' => 'required|in:smile,spectranet',
                 'router_number' => 'required|numeric',
-                
+
             ];
 
             $messages = [];
@@ -993,22 +1123,22 @@ class VtuController extends Controller
             $router_number = $request->router_number;
 
             $vtu_platform = $this->functions->getVtuPlatformToUse('router',$type);
-            // if($vtu_platform == "payscribe"){ 
-                                
+            // if($vtu_platform == "payscribe"){
+
             //     $name = $request->selected_plan['name'];
             //     $amount = $request->selected_plan['amount'];
-                
+
             //     $product_code = $request->productCode;
             //     $code = $request->selected_plan['code'];
-                
+
             //     $phone = $user->phone;
             //     $vend_type = "subscription";
 
             //     $amount_to_debit_user = $amount;
 
-                            
+
             //     if($type == "smile"){
-                    
+
 
             //         $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
             //         // echo $user_total_amount;
@@ -1032,7 +1162,7 @@ class VtuController extends Controller
             //             }
 
             //             $use_post = true;
-                        
+
 
             //             $response = $this->functions->payscribeVtuCurl($url,$use_post,$data);
 
@@ -1044,15 +1174,16 @@ class VtuController extends Controller
             //                 // var_dump($response);
 
             //                 if($response->status && $response->status_code == 200 ){
-                                
+
 
             //                     $trans_id = $response->message->details->trans_id;
-                                
+
             //                     $summary = "Debit Of " . $amount_to_debit_user . " For " . $real_type . " Router Recharge";
             //                     if($this->functions->debitUser($user_id,$amount_to_debit_user,$summary)){
-                                    
+
             //                         $form_array = array(
             //                             'user_id' => $user_id,
+            //                             'service' => 'payscribe',
             //                             'type' => 'router',
             //                             'sub_type' => $real_type,
             //                             'number' => $router_number,
@@ -1071,31 +1202,31 @@ class VtuController extends Controller
             //         }else{
             //             $response_arr['insuffecient_funds'] = true;
             //         }
-                        
-                    
+
+
             //     }
             // }else{
             if($vtu_platform == "clubkonnect"){
-                
-                
+
+
                 if($type == "smile"){
                     // $phone = "0" . $this->data['phone'];
                     $phone = $user->phone;
 
                     $plan = $request->selected_plan['package_id'];
-                            
 
-                    
+
+
                     // return $package_amount;
                     // echo is_numeric($package_amount);
-                    
-                    
+
+
                     $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
                     $package_amount = $this->functions->getPackageAmountForSmileClub("smile", $plan);
                     $amount = $package_amount;
                     $new_price = $this->functions->getRouterPlanNewPrice('smile', 'clubkonnect', $plan, $amount);
 
-                    
+
                     if ($amount > 0 && $new_price >= $amount) {
                         if ($amount != 0) {
                             $amount_to_debit_user = $new_price;
@@ -1106,13 +1237,13 @@ class VtuController extends Controller
 
                                 // return $url;
                                 $use_post = true;
-                                
+
                                 $response = $this->functions->vtu_curl($url,$use_post,$post_data=[]);
                                 // $response = '{"transactionid":"789","statuscode":"100","status":"ORDER_RECEIVED"}';
                                 // return $response;
                                 if($this->functions->isJson($response)){
                                     $response = json_decode($response);
-                                    
+
                                     if(is_object($response)){
                                         if($response->status == "ORDER_RECEIVED"){
                                             $real_type = "smile";
@@ -1121,6 +1252,7 @@ class VtuController extends Controller
                                                 $order_id = $response->transactionid;
                                                 $form_array = array(
                                                     'user_id' => $user_id,
+                                                    'service' => 'clubkonnect',
                                                     'type' => 'router',
                                                     'sub_type' => $real_type,
                                                     'number' => $router_number,
@@ -1135,7 +1267,7 @@ class VtuController extends Controller
                                                     $response_arr['order_id'] = $order_id;
                                                 }
                                             }
-                                            
+
                                         }
                                     }
                                 }
@@ -1144,9 +1276,9 @@ class VtuController extends Controller
                             }
                         }
                     }
-                            
+
                 }else{
-                    
+
                         // $phone = "0" . $this->data['phone'];
                         $phone = $user->phone;
 
@@ -1189,6 +1321,7 @@ class VtuController extends Controller
                                                     $order_id = $response->transactionid;
                                                     $form_array = array(
                                                         'user_id' => $user_id,
+                                                        'service' => 'clubkonnect',
                                                         'type' => 'router',
                                                         'sub_type' => $real_type,
                                                         'number' => $router_number,
@@ -1211,16 +1344,16 @@ class VtuController extends Controller
                                 }
                             }
                         }
-                    
-                } 
-        
+
+                }
+
             }
-                           
-            
+
+
         }
 
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function loadRouterBundlesAndVerifyNumber(Request $request)
@@ -1239,12 +1372,12 @@ class VtuController extends Controller
             'router_service' => 'required|in:smile,spectranet',
             'router_number' => 'required|numeric',
 
-        ];  
+        ];
 
         $request->validate($validationRules);
 
 
-        
+
         $type = $request->router_service;
         $router_number = $request->router_number;
 
@@ -1326,8 +1459,8 @@ class VtuController extends Controller
                     $response = json_decode($response);
                     // var_dump($response);
                     if (is_object($response)) {
-                        
-                            
+
+
                         if (isset($response->content->Customer_Name)) {
 
                             $customer_name = $response->content->Customer_Name;
@@ -1386,7 +1519,7 @@ class VtuController extends Controller
                         } else {
                             $response_arr['incorrect_number'] = true;
                         }
-                        
+
                     }
                 }
 
@@ -1433,13 +1566,13 @@ class VtuController extends Controller
                         }
                     }
                 }
-            }          
-            
+            }
+
         }
-        
-        
+
+
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function showRouterRechargePage(Request $request){
@@ -1447,7 +1580,7 @@ class VtuController extends Controller
 
         $props['user'] = $user;
 
-        
+
 
         return Inertia::render('Vtu/RouterRecharge',$props);
     }
@@ -1537,6 +1670,7 @@ class VtuController extends Controller
                         $order_id = $response->message->trans_id;
                         $form_array = array(
                             'user_id' => $user_id,
+                            'service' => 'payscribe',
                             'type' => 'airtime_to_wallet',
                             'sub_type' => $network_2,
                             'number' => $from,
@@ -1553,16 +1687,16 @@ class VtuController extends Controller
                 }
             }
         }
-        
+
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function validateAirtimeToWalletDetails(Request $request)
     {
         $date = date("j M Y");
         $time = date("h:i:sa");
-        
+
         $user = Auth::user();
         // return json_encode($post_data);
 
@@ -1579,17 +1713,17 @@ class VtuController extends Controller
 
         ];
 
-        
+
 
         $request->validate($validationRules);
 
 
-        
+
         $response_arr['success'] = true;
-        
-        
+
+
         return back()->with('data', $response_arr);
-        
+
     }
 
     public function getChargeForAirtimeToWalletTransfer(Request $request)
@@ -1605,12 +1739,12 @@ class VtuController extends Controller
 
         $response_arr = ['success' => false, 'messages' => '', 'network' => ''];
 
-        
+
         if (isset($request->network)) {
             $type = $request->network;
 
             if ($type == "mtn" || $type == "glo" || $type == "airtel" || $type == "9mobile") {
-                
+
 
                 $url = "https://api.payscribe.ng/api/v1/airtime_to_wallet";
                 $use_post = false;
@@ -1685,9 +1819,9 @@ class VtuController extends Controller
                 }
             }
         }
-   
+
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function showAirtimeToWalletPage(Request $request){
@@ -1727,12 +1861,14 @@ class VtuController extends Controller
 
 
                         $plan = $selected_plan['package_id'];
-                        
+
                         $amount = $this->functions->getPayscribeVtuCablePlanCostByProductId($operator, $selected_plan['package_id']);
                         $new_price = $this->functions->getCablePlanNewPrice($operator, 'payscribe', $selected_plan['package_id'], $amount);
+                        $vtu_plan = VtuPlatform::where('name', "{$operator}_cable")->first();
                         if ($amount > 0 && $new_price >= $amount) {
-                            if ($amount != 0) {
-                                $amount_to_debit_user = $new_price;
+                            if ($amount != 0 && !is_null($vtu_plan)) {
+                                $amount_to_debit_user = round($new_price - (($vtu_plan->purchaser_percentage / 100) * $new_price), 2);
+
 
                                 // return $amount_to_debit_user;
                                 $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
@@ -1760,20 +1896,22 @@ class VtuController extends Controller
                                         $response = json_decode($response);
 
                                         if ($response->status == true && $response->status_code == 200) {
-                                            
+
                                             $summary = "Debit Of " . $amount_to_debit_user . " For CableTV Recharge";
                                             if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
-
+                                                $response_arr['amount_debited'] = $amount_to_debit_user;
                                                 $order_id = $response->message->details->trans_id;
                                                 $form_array = array(
                                                     'user_id' => $user_id,
+                                                    'service' => 'payscribe',
                                                     'type' => 'cable',
                                                     'sub_type' => $operator,
                                                     'number' => $decoder_number,
                                                     'response' => json_encode($response),
                                                     'date' => $date,
                                                     'time' => $time,
-                                                    'amount' => $amount_to_debit_user,
+                                                    'amount' => $new_price,
+                                                    'amount_debited' => $amount_to_debit_user,
                                                     'order_id' => $order_id
                                                 );
 
@@ -1790,6 +1928,7 @@ class VtuController extends Controller
                                                 $order_id = $response->message->details->trans_id;
                                                 $form_array = array(
                                                     'user_id' => $user_id,
+                                                    'service' => 'payscribe',
                                                     'type' => 'cable',
                                                     'sub_type' => $operator,
                                                     'number' => $decoder_number,
@@ -1797,6 +1936,7 @@ class VtuController extends Controller
                                                     'date' => $date,
                                                     'time' => $time,
                                                     'amount' => $amount_to_debit_user,
+                                                    'amount_debited' => $amount_to_debit_user,
                                                     'order_id' => $order_id
                                                 );
 
@@ -1812,16 +1952,16 @@ class VtuController extends Controller
                                                 }
                                             }
                                         }
-                                                                
-                                            
+
+
                                     }
                                 } else {
                                     $response_arr['insuffecient_funds'] = true;
                                 }
                             }
-                        } 
-                            
-                        
+                        }
+
+
                     } else if ($vtu_platform == "clubkonnect") {
 
                         if ($operator == "dstv") {
@@ -1840,17 +1980,20 @@ class VtuController extends Controller
 
 
                         $plan = $selected_plan['package_id'];
-                        
+
                         $package_amount = $this->functions->getPackageAmountForCableTvClub($club_type, $plan);
                         $new_price = $this->functions->getCablePlanNewPrice($operator, 'clubkonnect', $plan, $package_amount);
+                        $vtu_plan = VtuPlatform::where('name', "{$operator}_cable")->first();
                         // return $new_price;
                         // echo is_numeric($package_amount);
-                        if ($package_amount > 0 && $new_price >= $package_amount) {
-                            
-                            $amount_to_debit_user = $new_price;
+                        if ($package_amount > 0 && $new_price >= $package_amount && !is_null($vtu_plan)) {
+
+                            $amount_to_debit_user = round($new_price - (($vtu_plan->purchaser_percentage / 100) * $new_price), 2);
+                            // $amount_to_debit_user = $new_price;
                             $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
                             // echo $user_total_amount;
 
+                            // return $amount_to_debit_user;
                             if ($amount_to_debit_user <= $user_total_amount) {
 
                                 $url = "https://www.nellobytesystems.com/APICableTVV1.asp?UserID=".$this->CLUB_USERID."&APIKey=".$this->CLUB_APIKEY."&CableTV=" . $operator . "&Package=" . $plan . "&SmartCardNo=" . $decoder_number;
@@ -1859,26 +2002,35 @@ class VtuController extends Controller
 
                                 $response = $this->functions->vtu_curl($url, $use_post, $post_data = []);
 
-                                // $response = '{"transactionid":"789","statuscode":"100","status":"ORDER_RECEIVED"}';
+                                $debited = $package_amount - 300;
+
+                                // $response = '{"transactionid":"2024080514376620035525","transactiondate":"8\/5\/2024 2:37:07 PM","status":"ORDER_RECEIVED","productname":"'.$plan.'","amount":"'.$debited.'","amountcredited":"","smartcardno":"'.$decoder_number.'","paymentoption":"Wallet","walletbalance":"82884.9140625"}';
                                 // return $response;
                                 if ($this->functions->isJson($response)) {
+
                                     $response = json_decode($response);
 
                                     if (is_object($response)) {
-                                        if ($response->status == "ORDER_RECEIVED") {
+                                        if ($response->status == "ORDER_RECEIVED" || $response->status == "ORDER_COMPLETED") {
+
                                             $summary = "Debit Of " . $amount_to_debit_user . " For CableTV Recharge";
                                             if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
                                                 $order_id = $response->transactionid;
 
+                                                $response_arr['amount_debited'] = $amount_to_debit_user;
+
                                                 $form_array = array(
                                                     'user_id' => $user_id,
+                                                    'service' => 'clubkonnect',
+                                                    'discount' => $vtu_plan->purchaser_percentage,
                                                     'type' => 'cable',
                                                     'sub_type' => $operator,
                                                     'number' => $decoder_number,
                                                     'response' => json_encode($response),
                                                     'date' => $date,
                                                     'time' => $time,
-                                                    'amount' => $amount_to_debit_user,
+                                                    'amount' => $new_price,
+                                                    'amount_debited' => $amount_to_debit_user,
                                                     'order_id' => $order_id
                                                 );
 
@@ -1893,15 +2045,100 @@ class VtuController extends Controller
                             } else {
                                 $response_arr['insuffecient_funds'] = true;
                             }
-                        } 
-                                   
+                        }
+
+                    } else if ($vtu_platform == "gsubz") {
+
+
+                        // $phone = "0" . $this->data['phone'];
+                        $phone = $user->phone;
+
+                        $plan = $selected_plan['package_id'];
+
+                        $package_amount = $this->functions->getPackageAmountForCableTvGsubz($operator, $plan);
+                        $new_price = $this->functions->getCablePlanNewPrice($operator, 'gsubz', $plan, $package_amount);
+
+
+                        $vtu_plan = VtuPlatform::where('name', "{$operator}_cable")->first();
+                        // return $new_price;
+                        // echo is_numeric($package_amount);
+                        if ($package_amount > 0 && $new_price >= $package_amount && !is_null($vtu_plan)) {
+
+                            $amount_to_debit_user = round($new_price - (($vtu_plan->purchaser_percentage / 100) * $new_price), 2);
+                            // $amount_to_debit_user = $new_price;
+                            $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
+                            // return $amount_to_debit_user;
+                            if ($amount_to_debit_user <= $user_total_amount) {
+                                $url = "https://gsubz.com/api/pay/";
+
+                                $data = [
+                                    'serviceID'=> $operator,
+                                    'api'=> $this->functions->getGsubzApiKey(),
+                                    'variation_code'=> $plan,
+                                    'phone'=> $phone,
+                                    'amount'=> "",
+                                    'customerID'=> $decoder_number
+                                ];
+
+                                // return $data;
+
+                                $use_post = true;
+
+                                $response = $this->functions->gSubzVtuCurl($url, $use_post, $data);
+                                return $response;
+
+                                $debited = $package_amount - 300;
+
+                                // $response = '{"transactionid":"2024080514376620035525","transactiondate":"8\/5\/2024 2:37:07 PM","status":"ORDER_RECEIVED","productname":"'.$plan.'","amount":"'.$debited.'","amountcredited":"","smartcardno":"'.$decoder_number.'","paymentoption":"Wallet","walletbalance":"82884.9140625"}';
+                                // return $response;
+                                if ($this->functions->isJson($response)) {
+
+                                    $response = json_decode($response);
+
+                                    if (is_object($response)) {
+                                        if ($response->status == "ORDER_RECEIVED" || $response->status == "ORDER_COMPLETED") {
+
+                                            $summary = "Debit Of " . $amount_to_debit_user . " For CableTV Recharge";
+                                            if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                                                $order_id = $response->transactionid;
+
+                                                $response_arr['amount_debited'] = $amount_to_debit_user;
+
+                                                $form_array = array(
+                                                    'user_id' => $user_id,
+                                                    'service' => 'gsubz',
+                                                    'discount' => $vtu_plan->purchaser_percentage,
+                                                    'type' => 'cable',
+                                                    'sub_type' => $operator,
+                                                    'number' => $decoder_number,
+                                                    'response' => json_encode($response),
+                                                    'date' => $date,
+                                                    'time' => $time,
+                                                    'amount' => $new_price,
+                                                    'amount_debited' => $amount_to_debit_user,
+                                                    'order_id' => $order_id
+                                                );
+
+                                                if ($this->functions->addTransactionStatus($form_array)) {
+                                                    $response_arr['success'] = true;
+                                                    $response_arr['order_id'] = $order_id;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                $response_arr['insuffecient_funds'] = true;
+                            }
+                        }
+
                     }
                 }
             }
         }
 
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function validateDecoderNumberCablePlans(Request $request){
@@ -1909,20 +2146,20 @@ class VtuController extends Controller
         $time = date("h:i:sa");
         $user = Auth::user();
         // return json_encode($post_data);
-        
+
         $user_id = $user->id;
         $response_arr = ['success' => false,'messages' => '','customer_name' => '','invalid_user' => false,'cable_plans' => '','platform' => ''];
 
         $validationRules = [
             'operator' => 'required|in:dstv,gotv,startimes',
             'decoder_number' => 'required|numeric|digits_between:5,15'
-            
+
         ];
 
         $request->validate($validationRules);
 
-        
-        
+
+
         $operator = $request->operator;
         $decoder_number = $request->decoder_number;
 
@@ -1939,7 +2176,7 @@ class VtuController extends Controller
             $club_type = "Startimes";
         }
 
-        $customer_name = $this->functions->validateDecoderNumber($vtu_platform, $vtu_platform == "payscribe" ? $operator : $cable_type, $decoder_number);
+        $customer_name = $this->functions->validateDecoderNumber($vtu_platform, $vtu_platform == "payscribe"? $operator : $cable_type, $decoder_number);
         // dd($customer_name);
 
         if($customer_name != ""){
@@ -1994,8 +2231,59 @@ class VtuController extends Controller
                         }
                     }
                 }
+            }else if ($vtu_platform == "gsubz") {
+                $response_arr['platform'] = 'gsubz';
+                if ($operator == "dstv" || $operator == "gotv" || $operator == "startimes") {
+
+
+
+                    $url = "https://abtospay.com/plans/?serviceID={$operator}";
+                    //                  // echo $url;
+                    $use_post = false;
+
+                    $response = $this->functions->gSubzVtuCurl($url, $use_post);
+
+                    if ($this->functions->isJson($response)) {
+                        $response = json_decode($response);
+                        // var_dump($response);
+                        if (is_object($response)) {
+                            if (isset($response->list)) {
+                                $response_arr['success'] = true;
+                                $index = 0;
+                                $new_arr = [];
+
+
+                                $rows = $response->list;
+                                for ($i = 0; $i < count($rows); $i++) {
+                                    $index++;
+
+                                    $package_id = $rows[$i]->value;
+                                    $package_name = $rows[$i]->display_name;
+                                    $package_amount = $rows[$i]->price;
+
+
+                                    // $package_name = substr($package_name, 0, -2);
+                                    $new_price = $this->functions->getCablePlanNewPrice($operator, 'gsubz', $package_id, $package_amount);
+
+                                    $new_arr[$i]['index'] = $index;
+                                    $new_arr[$i]['package_id'] = $package_id;
+                                    $new_arr[$i]['name'] = $package_name;
+                                    $new_arr[$i]['amount'] = $new_price;
+                                    $new_arr[$i]['type'] = $operator;
+                                }
+
+                                if (count($new_arr) > 0) {
+                                    $price = array_column($new_arr, 'amount');
+                                    array_multisort($price, SORT_ASC, $new_arr);
+                                }
+
+                                $response_arr['cable_plans'] = $new_arr;
+                            }
+                        }
+                    }
+                }
             } else {
-                $response_arr['platform'] = "clubkonnect";
+                $response_arr['platform'] = 'clubkonnect';
                 if ($operator == "dstv" || $operator == "gotv" || $operator == "startimes") {
 
 
@@ -2051,30 +2339,268 @@ class VtuController extends Controller
             $response_arr['invalid_user'] = true;
         }
 
-        
+
         return back()->with('data',$response_arr);
-        
+
     }
 
-    public function loadCableTvPage(Request $request){
-        $user = Auth::user();
-        $props['user'] = $user;
-
-        return Inertia::render('Vtu/CableTV',$props);
-    }
-
-    public function purchaseElectricityWithBuypower(Request $request)
-    {
+    public function purchaseElectricityWithGsubz(Request $request){
         $date = date("j M Y");
         $time = date("h:i:sa");
+        $post_data = (Object) $request->input();
         $user = Auth::user();
         // return json_encode($post_data);
 
         $user_id = $user->id;
 
 
+        $response_arr = array('success' => false,'messages' => '','insuffecient_funds' => false,'order_id' => '','invalid_meterno' => false,'meter_type_not_available' => false,'metertoken' => '','transaction_pending' => false);
 
-        $response_arr = ['success' => false, 'messages' => '', 'insuffecient_funds' => false, 'order_id' => '', 'invalid_meterno' => false, 'meter_type_not_available' => false, 'metertoken' => '', 'transaction_pending' => false, 'error_msg' => ''];
+        $validationRules = [
+            'disco' => 'required|in:eko,ikeja,abuja,ibadan,phc,kano,kaduna,jos',
+            'meter_type' => 'required|in:prepaid,postpaid',
+            'meter_number' => 'required|numeric|digits_between:5,15',
+            'amount' => 'required|numeric|min:100|max:150000',
+            'mobile_number' => 'required|numeric|digits_between:5,15',
+            'email' => 'required|email:rfc,dns,strict,filter',
+
+        ];
+
+        $messages = [];
+
+        $request->validate($validationRules);
+
+
+
+        $disco = $post_data->disco;
+        $meter_type = $post_data->meter_type;
+        $meter_number = $post_data->meter_number;
+        $amount = $post_data->amount;
+        $mobile_number = $post_data->mobile_number;
+        $email = $post_data->email;
+        $phone_number = $mobile_number;
+        $meter_no = $meter_number;
+
+        if($disco == "eko"){
+            $serviceID = "eko-electric";
+        }else if($disco == "ikeja"){
+            $serviceID = "ikeja-electric";
+        }else if($disco == "abuja"){
+            $serviceID = "abuja-electric";
+        }else if($disco == "ibadan"){
+            $serviceID = "ibadan-electric";
+        }else if($disco == "phc"){
+            $serviceID = "portharcourt-electric";
+        }else if($disco == "kano"){
+            $serviceID = "kano-electric";
+        }else if($disco == "kaduna"){
+            $serviceID = "Kaduna-electric";
+        }else if($disco == "jos"){
+            $serviceID = "jos-electic";
+        }
+
+
+
+
+
+        $amount_deb_user = $amount;
+
+        $amount_deb_user += $request->sms_check ? $this->sms_charge : 0;
+        $amount_to_debit_user = $amount;
+        $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
+
+        $meter_type = strtolower($meter_type);
+        $vtu_plan = VtuPlatform::where('name', "{$disco}_electricity")->first();
+
+        $amount_deb_user = round($amount_deb_user - (($vtu_plan->purchaser_percentage / 100) * $amount_deb_user), 2);
+        // return $amount_deb_user;
+
+        if(!is_null($vtu_plan)){
+
+            if($amount_deb_user <= $user_total_amount){
+
+                $api = $this->functions->getGsubzApiKey();
+
+                $url = "https://gsubz.com/api/pay/";
+                $use_post = true;
+                $data = array(
+                    'serviceID' => $serviceID,
+                    'api' => $api,
+                    'phone' => $phone_number,
+                    'amount' => $amount,
+                    'customerID' => $meter_number
+                );
+
+                // $response = $this->functions->gSubzVtuCurl($url,$use_post,$data);
+
+                $debited = (float) $amount - 110;
+
+                $response = '{"code":200,"status":"successful","transactionID":3910537836,"amount":"'.$amount.'","phone":"'.$phone_number.'","serviceID":"'.$serviceID.'","amountPaid":'.$debited.',"initialBalance":"26731.897415374","finalBalance":26634.897415374,"date":"2024-08-05T07:33:09+01:00","api_response":{"Token":"6837890289218923"}}';
+
+                $real_response = $response;
+                // return $data;
+                // return $response;
+                if($this->functions->isJson($response)){
+                    $response = json_decode($response);
+                    if(is_object($response)){
+                        $real_response = $response;
+                        if(isset($response->status)){
+                            if($response->status == "successful" && $response->code == 200){
+
+                                $amount_to_debit_user = round($amount - (($vtu_plan->purchaser_percentage / 100) * $amount), 2);
+
+                                $summary = "Debit Of " . $amount_to_debit_user . " For Electricity Recharge";
+
+                                if($this->functions->debitUser($user_id,$amount_to_debit_user,$summary)){
+
+                                    $response_arr['amount_debited'] = $amount_deb_user;
+
+                                    $order_id = "GS" . $response->transactionID;
+
+                                    if(isset($response->api_response->Token)){
+                                        if(!is_null($response->api_response->Token)){
+                                            $metertoken = $response->api_response->Token;
+                                            $this->functions->sendMeterTokenForPrepaidToUserByNotif($user_id,$email,$date,$time,$order_id,$disco,$meter_no,$amount,$metertoken);
+                                        }
+                                    }
+
+
+                                    $form_array = array(
+                                        'user_id' => $user_id,
+                                        'service' => 'gsubz',
+                                        'discount' => $vtu_plan->purchaser_percentage,
+                                        'type' => 'electricity',
+                                        'sub_type' => $disco,
+                                        'date' => $date,
+                                        'time' => $time,
+                                        'amount' => $amount,
+                                        'amount_debited' => $amount_to_debit_user,
+                                        'number' => $meter_no,
+                                        'order_id' => $order_id,
+                                        'response' => json_encode($real_response)
+                                    );
+                                    if($this->functions->addTransactionStatus($form_array,true)){
+                                        $response_arr['success'] = true;
+                                        $response_arr['order_id'] = $order_id;
+                                        $response_arr['metertoken'] = $metertoken;
+
+
+                                        if($post_data->sms_check == true){
+                                            $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
+
+
+                                            $amount_to_debit_user = round($this->sms_charge - (($vtu_plan->purchaser_percentage / 100) * $this->sms_charge), 2);
+                                            // echo $user_total_amount;
+                                            // echo $amount;
+
+                                            if($amount_to_debit_user <= $user_total_amount){
+
+
+                                                if($meter_type == "prepaid"){
+                                                    $to = $phone_number;
+                                                    $message = "Your Meter Token For Meter Number " . $meter_no . " Is ". $metertoken;
+                                                    $url = "https://api.payscribe.ng/api/v1/sms";
+
+                                                    $use_post = true;
+                                                    $post_data = [
+                                                        'to' => $to,
+                                                        'message' => $message
+                                                    ];
+
+
+                                                    // var_dump($post_data);
+
+                                                    $response = $this->functions->payscribeVtuCurl($url,$use_post,$post_data);
+
+
+                                                    if($this->functions->isJson($response)){
+
+                                                        $response = json_decode($response);
+                                                        // var_dump($response);
+
+                                                        if($response->status && $response->status_code == 200){
+
+                                                            $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
+                                                            if($this->functions->debitUser($user_id,$amount_to_debit_user,$summary)){
+                                                                $order_id = $response->message->details->transaction_id;
+                                                                $form_array = array(
+                                                                    'user_id' => $user_id,
+                                                                    'service' => 'payscribe',
+                                                                    'type' => 'bulk_sms',
+                                                                    'sub_type' => "",
+                                                                    'number' => $message,
+                                                                    'date' => $date,
+                                                                    'time' => $time,
+                                                                    'amount' => $this->sms_charge,
+                                                                    'amount_debited' => $amount_to_debit_user,
+                                                                    'order_id' => $order_id,
+                                                                    'response' => json_encode($response)
+                                                                );
+                                                                if($this->functions->addTransactionStatus($form_array)){
+                                                                    $response_arr['success'] = true;
+                                                                    $response_arr['order_id'] = $order_id;
+                                                                }
+                                                            }
+                                                        }else if($response->status && $response->status_code == 201){
+
+
+                                                            $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
+                                                            if($this->functions->debitUser($user_id,$amount_to_debit_user,$summary)){
+                                                                $order_id = $response->message->details->transaction_id;
+                                                                $form_array = array(
+                                                                    'user_id' => $user_id,
+                                                                    'service' => 'payscribe',
+                                                                    'type' => 'bulk_sms',
+                                                                    'sub_type' => "",
+                                                                    'number' => $message,
+                                                                    'date' => $date,
+                                                                    'time' => $time,
+                                                                    'amount' => $this->sms_charge,
+                                                                    'amount_debited' => $amount_to_debit_user,
+                                                                    'order_id' => $order_id,
+                                                                    'response' => json_encode($response)
+                                                                );
+                                                                if($this->functions->addTransactionStatus($form_array)){
+                                                                    $response_arr['success'] = true;
+                                                                    $response_arr['order_id'] = $order_id;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+
+            }else{
+                $response_arr['insuffecient_funds'] = true;
+            }
+        }
+
+        return back()->with('data',$response_arr);
+    }
+
+
+    public function purchaseElectricityWithBuypower(Request $request)
+    {
+        $date = date("j M Y");
+        $time = date("h:i:sa");
+        $user = Auth::user();
+        $post_data = (Object) $request->input();
+        // return json_encode($post_data);
+
+        $user_id = $user->id;
+
+
+
+        $response_arr = ['success' => false, 'messages' => '', 'insuffecient_funds' => false, 'order_id' => '', 'invalid_meterno' => false, 'meter_type_not_available' => false, 'metertoken' => '', 'transaction_pending' => false, 'error_msg' => '', 'parcels' => ''];
 
         $validationRules = [
             'disco' => 'required|in:eko,ikeja,abuja,ibadan,enugu,phc,kano,kaduna,jos',
@@ -2088,7 +2614,7 @@ class VtuController extends Controller
 
         $request->validate($validationRules);
 
-        
+
         $disco = $request->disco;
         $meter_type = $request->meter_type;
         $meter_number = $request->meter_number;
@@ -2132,166 +2658,193 @@ class VtuController extends Controller
             $meter_type = "POSTPAID";
         }
 
-        if ($request->sms_check == true) {
-            $amount_deb_user = $amount + 5;
-        } else {
-            $amount_deb_user = $amount;
-        }
+        $amount_deb_user = $amount;
+
+        $amount_deb_user += $request->sms_check ? $this->sms_charge : 0;
         $amount_to_debit_user = $amount;
         $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
 
         $meter_type = strtolower($meter_type);
+        $vtu_plan = VtuPlatform::where('name', "{$disco}_electricity")->first();
 
-        if ($amount_deb_user <= $user_total_amount) {
+        $amount_deb_user = round($amount_deb_user - (($vtu_plan->purchaser_percentage / 100) * $amount_deb_user), 2);
+        // return $amount_deb_user;
 
+        if(!is_null($vtu_plan)){
 
-
-
-            $url = "https://api.buypower.ng/v2/vend";
-            $use_post = true;
-
-            $order_id = "BP" . mt_rand(10000000, 99999999);
-
-            $data = array(
-                'meter' => $meter_no,
-                'disco' => $disco_code,
-                'vendType' => $meter_type,
-                'orderId' => $order_id,
-                'phone' => $phone_number,
-                'paymentType' => 'ONLINE',
-                'amount' => $amount,
-                'email' => $email
-            );
-            // return $data;
+            if ($amount_deb_user <= $user_total_amount) {
 
 
-            $response = $this->functions->buyPowerVtuCurl($url, $use_post, $data);
-            // $response = '{"status":false,"error":true,"responseCode":202,"message":"Transaction is still in progress. Please requery in 120 seconds","delay":[120,120,120]}';
-            // $response = '{"status":true,"responseCode":200,"data":{"id":7351225,"amountGenerated":437.21,"tariff":null,"debtAmount":0,"debtRemaining":0,"disco":"ABUJA","freeUnits":0,"orderId":"1dd37e1d-c5df-4a2a-8041-1a1d131cbe18","receiptNo":"1613546757563","tax":62.79,"vendTime":null,"token":"0000-0000-0000-0000-0000","totalAmountPaid":1000,"units":"12.5","vendAmount":0,"vendRef":"1613546757563","responseCode":100,"responseMessage":"Vending Successful","demandCategory":"NMD","assetProvider":"BH"}}';
 
-            if ($this->functions->isJson($response)) {
 
-                // var_dump($response);
+                $url = "https://api.buypower.ng/v2/vend";
+                $use_post = true;
+
+                $order_id = "BP" . mt_rand(10000000, 99999999);
+
+                $data = array(
+                    'meter' => $meter_no,
+                    'disco' => $disco_code,
+                    'vendType' => $meter_type,
+                    'orderId' => $order_id,
+                    'phone' => $phone_number,
+                    'paymentType' => 'ONLINE',
+                    'amount' => $amount,
+                    'email' => $email
+                );
+                // return $data;
+
+
+                // $response = $this->functions->buyPowerVtuCurl($url, $use_post, $data);
+                $response = '{"status":false,"error":true,"responseCode":202,"message":"Transaction is still in progress. Please requery in 120 seconds","delay":[120,120,120]}';
+
+                $debited = $amount - 100;
+                // $response = '{"status":true,"message":"Successful transaction","responseCode":200,"data":{"id":80200111,"amountGenerated": '.$debited.',"tariff":"62.48","debtAmount":0,"debtRemaining":0,"disco":"'.$disco_code.'","orderId":"'.$order_id.'","receiptNo":"1722805973007","tax":41.86,"vendTime":"2024-08-04 22:12:54","token":"4837-7663-6925-3752-3205","totalAmountPaid":'.$amount.',"units":"8.9","vendAmount":0,"vendRef":"1722805973007","responseCode":100,"responseMessage":"SUCCESSFUL","address":"41 EBENEZER AKINTUNJI AVENUE","name":"OKECHUKWU VINCENT EZEH","phoneNo":null,"charges":"0","tariffIndex":null,"parcels":[{"type":"TOKEN","content":"48377663692537523205"},{"type":"KCT1","content":"00000000000000000000"},{"type":"KCT2","content":"00000000000000000000"}],"demandCategory":"NMD","assetProvider":"'.$disco_code.'","tariffClass":null}}';
+
                 // return $response;
-                $response = json_decode($response);
+
                 $real_response = $response;
-                
-                if (is_object($response)) {
-                    if (isset($response->status)) {
-                        $status = $response->status;
-                        $responseCode = $response->responseCode;
 
-                        $metertoken = "";
-                        if ($status == true) {
+                if ($this->functions->isJson($response)) {
 
+                    // var_dump($response);
+                    // return $response;
+                    $response = json_decode($response);
+                    $real_response = $response;
 
-                            
-                            $summary = "Debit Of " . $amount_to_debit_user . " For Electricity Recharge";
-                            if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
-                
+                    if (is_object($response)) {
+                        if (isset($response->status)) {
+                            $status = $response->status;
+                            $responseCode = $response->responseCode;
 
+                            $metertoken = "";
+                            if ($status == true) {
 
+                                $amount_to_debit_user = round($amount - (($vtu_plan->purchaser_percentage / 100) * $amount), 2);
 
+                                // return $amount_to_debit_user;
 
-                                // if(isset($response->message->details->reference_number)){
-                                //  $order_id = $response->message->details->reference_number;
-                                // }else{
-                                //  $order_id = "";
-                                // }
-
-                                if (isset($response->data->token)) {
-                                    $metertoken = $response->data->token;
-                                    $this->functions->sendMeterTokenForPrepaidToUserByNotif($user_id, $email, $date, $time, $order_id, $disco, $meter_no, $amount, $metertoken);
-                                }
-
-                                $form_array = array(
-                                    'user_id' => $user_id,
-                                    'type' => 'electricity',
-                                    'sub_type' => $disco,
-                                    'date' => $date,
-                                    'time' => $time,
-                                    'amount' => $amount,
-                                    'number' => $meter_no,
-                                    'order_id' => $order_id,
-                                    'response' => json_encode($real_response)
-                                );
-                                if ($this->functions->addTransactionStatus($form_array)) {
-                                    $response_arr['success'] = true;
-                                    $response_arr['order_id'] = $order_id;
-                                    $response_arr['metertoken'] = $metertoken;
-
-                                    if ($request->sms_check == true) {
-                                        $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
-                                        $amount_to_debit_user = 5;
-                                        // echo $user_total_amount;
-                                        // echo $amount;
-
-                                        if ($amount_to_debit_user <= $user_total_amount) {
+                                $summary = "Debit Of " . $amount_to_debit_user . " For Electricity Recharge";
+                                if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
 
 
-                                            if ($meter_type == "prepaid") {
-                                                $to = $phone_number;
-                                                $message = "Your Meter Token For Meter Number " . $meter_no . " Is " . $metertoken;
-                                                $url = "https://api.payscribe.ng/api/v1/sms";
 
-                                                $use_post = true;
-                                                $data = [
-                                                    'to' => $to,
-                                                    'message' => $message
-                                                ];
+                                    $response_arr['amount_debited'] = $amount_deb_user;
+
+                                    // if(isset($response->message->details->reference_number)){
+                                    //  $order_id = $response->message->details->reference_number;
+                                    // }else{
+                                    //  $order_id = "";
+                                    // }
+
+                                    if(isset($response->data->token)){
+                                        $metertoken = $response->data->token;
+                                        $parcelss = isset($response->data->parcels) ? $response->data->parcels : null;
+                                        $this->functions->sendMeterTokenForPrepaidToUserByNotif($user_id,$email,$date,$time,$order_id,$disco,$meter_no,$amount,$metertoken, $parcelss);
+                                    }
+
+                                    $form_array = array(
+                                        'user_id' => $user_id,
+                                        'service' => 'buypower',
+                                        'discount' => $vtu_plan->purchaser_percentage,
+                                        'type' => 'electricity',
+                                        'sub_type' => $disco,
+                                        'date' => $date,
+                                        'time' => $time,
+                                        'amount' => $amount,
+                                        'amount_debited' => $amount_to_debit_user,
+                                        'number' => $meter_no,
+                                        'order_id' => $order_id,
+                                        'response' => json_encode($real_response)
+                                    );
+                                    if ($this->functions->addTransactionStatus($form_array)) {
+                                        $response_arr['success'] = true;
+                                        $response_arr['order_id'] = $order_id;
+                                        $response_arr['metertoken'] = $metertoken;
+
+                                        if(isset($response->data->parcels)){
+                                            $response_arr['parcels'] = $response->data->parcels;
+                                        }
+
+                                        if ($request->sms_check) {
+                                            $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
+
+                                            $amount_to_debit_user = round($this->sms_charge - (($vtu_plan->purchaser_percentage / 100) * $this->sms_charge), 2);
+                                            // return $amount_to_debit_user;
+                                            // echo $user_total_amount;
+                                            // echo $amount;
+
+                                            if ($amount_to_debit_user <= $user_total_amount) {
 
 
-                                                // var_dump($post_data);
+                                                if ($meter_type == "prepaid") {
+                                                    $to = $phone_number;
+                                                    $message = "Your Meter Token For Meter Number " . $meter_no . " Is " . $metertoken;
+                                                    $url = "https://api.payscribe.ng/api/v1/sms";
 
-                                                $response = $this->functions->payscribeVtuCurl($url, $use_post, $data);
+                                                    $use_post = true;
+                                                    $data = [
+                                                        'to' => $to,
+                                                        'message' => $message
+                                                    ];
 
 
-                                                if ($this->functions->isJson($response)) {
+                                                    // var_dump($post_data);
 
-                                                    $response = json_decode($response);
-                                                    // var_dump($response);
+                                                    $response = $this->functions->payscribeVtuCurl($url, $use_post, $data);
 
-                                                    if ($response->status && $response->status_code == 200) {
 
-                                                        $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
-                                                        if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
-                                                            $order_id = $response->message->details->transaction_id;
-                                                            $form_array = array(
-                                                                'user_id' => $user_id,
-                                                                'type' => 'bulk_sms',
-                                                                'sub_type' => "",
-                                                                'number' => $message,
-                                                                'date' => $date,
-                                                                'time' => $time,
-                                                                'amount' => $amount_to_debit_user,
-                                                                'order_id' => $order_id,
-                                                                'response' => json_encode($response)
-                                                            );
-                                                            if ($this->functions->addTransactionStatus($form_array)) {
-                                                                $response_arr['success'] = true;
-                                                                $response_arr['order_id'] = $order_id;
+                                                    if ($this->functions->isJson($response)) {
+
+                                                        $response = json_decode($response);
+                                                        // var_dump($response);
+
+                                                        if ($response->status && $response->status_code == 200) {
+
+                                                            $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
+                                                            if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                                                                $order_id = $response->message->details->transaction_id;
+                                                                $form_array = array(
+                                                                    'user_id' => $user_id,
+                                                                    'service' => 'payscribe',
+                                                                    'type' => 'bulk_sms',
+                                                                    'sub_type' => "",
+                                                                    'number' => $message,
+                                                                    'date' => $date,
+                                                                    'time' => $time,
+                                                                    'amount' => $this->sms_charge,
+                                                                    'amount_debited' => $amount_to_debit_user,
+                                                                    'order_id' => $order_id,
+                                                                    'response' => json_encode($response)
+                                                                );
+                                                                if ($this->functions->addTransactionStatus($form_array)) {
+                                                                    $response_arr['success'] = true;
+                                                                    $response_arr['order_id'] = $order_id;
+                                                                }
                                                             }
-                                                        }
-                                                    } else if ($response->status && $response->status_code == 201) {
+                                                        } else if ($response->status && $response->status_code == 201) {
 
 
-                                                        $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
-                                                        if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
-                                                            $order_id = $response->message->details->transaction_id;
-                                                            $form_array = array(
-                                                                'user_id' => $user_id,
-                                                                'type' => 'bulk_sms',
-                                                                'sub_type' => "",
-                                                                'number' => $message,
-                                                                'date' => $date,
-                                                                'time' => $time,
-                                                                'amount' => $amount_to_debit_user,
-                                                                'order_id' => $order_id,
-                                                                'response' => json_encode($response)
-                                                            );
-                                                            if ($this->functions->addTransactionStatus($form_array)) {
-                                                                $response_arr['success'] = true;
-                                                                $response_arr['order_id'] = $order_id;
+                                                            $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
+                                                            if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                                                                $order_id = $response->message->details->transaction_id;
+                                                                $form_array = array(
+                                                                    'user_id' => $user_id,
+                                                                    'service' => 'payscribe',
+                                                                    'type' => 'bulk_sms',
+                                                                    'sub_type' => "",
+                                                                    'number' => $message,
+                                                                    'date' => $date,
+                                                                    'time' => $time,
+                                                                    'amount' => $this->sms_charge,
+                                                                    'amount_debited' => $amount_to_debit_user,
+                                                                    'order_id' => $order_id,
+                                                                    'response' => json_encode($response)
+                                                                );
+                                                                if ($this->functions->addTransactionStatus($form_array)) {
+                                                                    $response_arr['success'] = true;
+                                                                    $response_arr['order_id'] = $order_id;
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -2300,44 +2853,49 @@ class VtuController extends Controller
                                         }
                                     }
                                 }
-                            }
-                        } else {
-
-                            if ($responseCode == 202) {
-
-                                $summary = "Debit Of " . $amount_to_debit_user . " For Electricity Recharge";
-                                if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
-                                    $form_array = array(
-                                        'user_id' => $user_id,
-                                        'type' => 'electricity',
-                                        'sub_type' => $disco,
-                                        'date' => $date,
-                                        'time' => $time,
-                                        'amount' => $amount,
-                                        'number' => $meter_no,
-                                        'order_id' => $order_id,
-                                        'response' => json_encode($real_response)
-                                    );
-                                    if ($this->functions->addTransactionStatus($form_array)) {
-                                        $response_arr['success'] = true;
-                                        $response_arr['order_id'] = $order_id;
-                                        $response_arr['transaction_pending'] = true;
-                                    }
-                                }
                             } else {
-                                $response_arr['error_msg'] = $response->message;
+
+                                if ($responseCode == 202) {
+
+                                    $amount_to_debit_user = round($amount - (($vtu_plan->purchaser_percentage / 100) * $amount), 2);
+                                    $summary = "Debit Of " . $amount_to_debit_user . " For Electricity Recharge";
+                                    if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                                        $response_arr['amount_debited'] = $amount_deb_user;
+                                        $form_array = array(
+                                            'user_id' => $user_id,
+                                            'service' => 'buypower',
+                                            'discount' => $vtu_plan->purchaser_percentage,
+                                            'type' => 'electricity',
+                                            'sub_type' => $disco,
+                                            'date' => $date,
+                                            'time' => $time,
+                                            'amount' => $amount,
+                                            'amount_debited' => $amount_to_debit_user,
+                                            'number' => $meter_no,
+                                            'order_id' => $order_id,
+                                            'response' => json_encode($real_response)
+                                        );
+                                        if ($this->functions->addTransactionStatus($form_array, false)) {
+                                            $response_arr['success'] = true;
+                                            $response_arr['order_id'] = $order_id;
+                                            $response_arr['transaction_pending'] = true;
+                                        }
+                                    }
+                                } else {
+                                    $response_arr['error_msg'] = $response->message;
+                                }
                             }
                         }
                     }
                 }
+            } else {
+                $response_arr['insuffecient_funds'] = true;
             }
-        } else {
-            $response_arr['insuffecient_funds'] = true;
         }
-    
-        
+
+
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function purchaseElectricityWithPayscribe(Request $request)
@@ -2351,7 +2909,7 @@ class VtuController extends Controller
         if (isset($request->productCode) && isset($request->use_payscribe) && isset($request->customer_name)) {
             $productCode = $request->productCode;
             $customer_name = $request->customer_name;
-            
+
             $use_payscribe = $request->use_payscribe;
             if ($productCode != "" && $use_payscribe) {
                 $response_arr = ['success' => false, 'messages' => '', 'insuffecient_funds' => false, 'order_id' => '', 'invalid_meterno' => false, 'meter_type_not_available' => false, 'metertoken' => '', 'transaction_pending' => false];
@@ -2369,7 +2927,7 @@ class VtuController extends Controller
                 $request->validate($validationRules);
 
 
-                
+
                 $disco = $request->disco;
                 $meter_type = $request->meter_type;
                 $meter_number = $request->meter_number;
@@ -2427,151 +2985,164 @@ class VtuController extends Controller
                 }
 
 
-
-                if ($request->sms_check == true) {
-                    $amount_deb_user = $amount + 5;
-                } else {
-                    $amount_deb_user = $amount;
-                }
+                $amount_deb_user = $amount;
+                $amount_deb_user += $request->sms_check ? $this->sms_charge : 0;
                 $amount_to_debit_user = $amount;
                 $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
 
                 $meter_type = strtolower($meter_type);
+                $vtu_plan = VtuPlatform::where('name', "{$disco}_electricity")->first();
 
-                if ($amount_deb_user <= $user_total_amount) {
+                $amount_deb_user = round($amount_deb_user - (($vtu_plan->purchaser_percentage / 100) * $amount_deb_user), 2);
 
-                    $vtu_platform = $this->functions->getVtuPlatformToUse('', 'electricity');
-                    // return $vtu_platform;
-                    if ($vtu_platform == "payscribe" && $payscribe_disco != "") {
+                // return $amount_deb_user;
 
+                if(!is_null($vtu_plan)){
+                    if ($amount_deb_user <= $user_total_amount) {
 
-                        $url = "https://api.payscribe.ng/api/v1/electricity/vend";
-                        $use_post = true;
-                        $data = array(
-                            'meter_number' => $meter_no,
-                            'meter_type' => $meter_type,
-                            'amount' => $amount,
-                            'service' => $payscribe_disco,
-                            'product_code' => $productCode,
-                            'customer_name' => $customer_name,
-                            'phone' => $mobile_number,
-                            'email' => $email
-                        );
-                        $response = $this->functions->payscribeVtuCurl($url, $use_post, $data);
-
-                        // $response = '{"status":true,"message":{"description":"Transaction processed","details":{"service":"bedc","meter_number":"04219148147","meter_type":"prepaid","amount":100,"ref":"ibrahim-test|","trans_id":"PS-bedc-FqG17069697081600ibU","date_initiated":"2024-02-03 14:15:11","token":"63489552365838623073","unit":"1.7 Kwh","address":"No 9 Toluwani, Ajao Estate"}},"status_code":200}';
-
-                        // return $response;
-                        if ($this->functions->isJson($response)) {
-                            $response = json_decode($response);
-                            if (is_object($response)) {
-
-                                if ($response->status == true && $response->status_code == 200) {
-                                    $summary = "Debit Of " . $amount_to_debit_user . " For Electricity Recharge";
-
-                                    if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                        $vtu_platform = $this->functions->getVtuPlatformToUse('electricity', $disco);
+                        // return $vtu_platform;
+                        if ($vtu_platform == "payscribe" && $payscribe_disco != "") {
 
 
-                                        $order_id = $response->message->details->trans_id;
+                            $url = "https://api.payscribe.ng/api/v1/electricity/vend";
+                            $use_post = true;
+                            $data = array(
+                                'meter_number' => $meter_no,
+                                'meter_type' => $meter_type,
+                                'amount' => $amount,
+                                'service' => $payscribe_disco,
+                                'product_code' => $productCode,
+                                'customer_name' => $customer_name,
+                                'phone' => $mobile_number,
+                                'email' => $email
+                            );
+                            $response = $this->functions->payscribeVtuCurl($url, $use_post, $data);
 
-                                        if (isset($response->message->details->token)) {
-                                            if (!is_null($response->message->details->token)) {
-                                                $metertoken = $response->message->details->token;
-                                                $this->functions->sendMeterTokenForPrepaidToUserByNotif($user_id, $email, $date, $time, $order_id, $disco, $meter_no, $amount, $metertoken);
+                            // $response = '{"status":true,"message":{"description":"Transaction processed","details":{"service":"bedc","meter_number":"04219148147","meter_type":"prepaid","amount":100,"ref":"ibrahim-test|","trans_id":"PS-bedc-FqG17069697081600ibU","date_initiated":"2024-02-03 14:15:11","token":"63489552365838623073","unit":"1.7 Kwh","address":"No 9 Toluwani, Ajao Estate"}},"status_code":200}';
+
+                            // return $response;
+                            if ($this->functions->isJson($response)) {
+                                $response = json_decode($response);
+                                if (is_object($response)) {
+
+                                    if ($response->status == true && $response->status_code == 200) {
+
+                                        $amount_to_debit_user = round($amount - (($vtu_plan->purchaser_percentage / 100) * $amount), 2);
+                                        $summary = "Debit Of " . $amount_to_debit_user . " For Electricity Recharge";
+
+                                        // return $amount_to_debit_user;
+                                        if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+
+
+                                            $order_id = $response->message->details->trans_id;
+
+                                            if (isset($response->message->details->token)) {
+                                                if (!is_null($response->message->details->token)) {
+                                                    $metertoken = $response->message->details->token;
+                                                    $this->functions->sendMeterTokenForPrepaidToUserByNotif($user_id, $email, $date, $time, $order_id, $disco, $meter_no, $amount, $metertoken);
+                                                }
+                                            } else {
+                                                $metertoken = "";
                                             }
-                                        } else {
-                                            $metertoken = "";
-                                        }
 
-                                        $form_array = array(
-                                            'user_id' => $user_id,
-                                            'type' => 'electricity',
-                                            'sub_type' => $disco,
-                                            'date' => $date,
-                                            'time' => $time,
-                                            'amount' => $amount,
-                                            'number' => $meter_no,
-                                            'order_id' => $order_id,
-                                            'response' => json_encode($response)
-                                        );
-                                        if ($this->functions->addTransactionStatus($form_array)) {
-                                            $response_arr['success'] = true;
-                                            $response_arr['order_id'] = $order_id;
-                                            $response_arr['metertoken'] = $metertoken;
+                                            $form_array = array(
+                                                'user_id' => $user_id,
+                                                'service' => 'payscribe',
+                                                'type' => 'electricity',
+                                                'sub_type' => $disco,
+                                                'date' => $date,
+                                                'time' => $time,
+                                                'amount' => $amount,
+                                                'amount_debited' => $amount_to_debit_user,
+                                                'number' => $meter_no,
+                                                'order_id' => $order_id,
+                                                'response' => json_encode($response)
+                                            );
+                                            if ($this->functions->addTransactionStatus($form_array)) {
+                                                $response_arr['success'] = true;
+                                                $response_arr['order_id'] = $order_id;
+                                                $response_arr['metertoken'] = $metertoken;
 
+                                                $response_arr['amount_debited'] = $amount_deb_user;
+                                                if ($request->sms_check == true) {
+                                                    $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
+                                                    $amount_to_debit_user = round($this->sms_charge - (($vtu_plan->purchaser_percentage / 100) * $this->sms_charge), 2);
+                                                    // return $amount_to_debit_user;
+                                                    // echo $user_total_amount;
+                                                    // echo $amount;
 
-                                            if ($request->sms_check == true) {
-                                                $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
-                                                $amount_to_debit_user = 5;
-                                                // echo $user_total_amount;
-                                                // echo $amount;
-
-                                                if ($amount_to_debit_user <= $user_total_amount) {
-
-
-                                                    if ($meter_type == "prepaid") {
-                                                        $to = $phone_number;
-                                                        $message = "Your Meter Token For Meter Number " . $meter_no . " Is " . $metertoken;
-                                                        $url = "https://api.payscribe.ng/api/v1/sms";
-
-                                                        $use_post = true;
-                                                        $post_data = [
-                                                            'to' => $to,
-                                                            'message' => $message
-                                                        ];
+                                                    if ($amount_to_debit_user <= $user_total_amount) {
 
 
-                                                        // var_dump($post_data);
+                                                        if ($meter_type == "prepaid") {
+                                                            $to = $phone_number;
+                                                            $message = "Your Meter Token For Meter Number " . $meter_no . " Is " . $metertoken;
+                                                            $url = "https://api.payscribe.ng/api/v1/sms";
 
-                                                        $response = $this->functions->payscribeVtuCurl($url, $use_post, $post_data);
+                                                            $use_post = true;
+                                                            $post_data = [
+                                                                'to' => $to,
+                                                                'message' => $message
+                                                            ];
 
 
-                                                        if ($this->functions->isJson($response)) {
+                                                            // var_dump($post_data);
 
-                                                            $response = json_decode($response);
-                                                            // var_dump($response);
+                                                            $response = $this->functions->payscribeVtuCurl($url, $use_post, $post_data);
 
-                                                            if ($response->status && $response->status_code == 200) {
 
-                                                                $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
-                                                                if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
-                                                                    $order_id = $response->message->details->transaction_id;
-                                                                    $form_array = array(
-                                                                        'user_id' => $user_id,
-                                                                        'type' => 'bulk_sms',
-                                                                        'sub_type' => "",
-                                                                        'number' => $message,
-                                                                        'date' => $date,
-                                                                        'time' => $time,
-                                                                        'amount' => $amount_to_debit_user,
-                                                                        'order_id' => $order_id,
-                                                                        'response' => json_encode($response)
-                                                                    );
-                                                                    if ($this->functions->addTransactionStatus($form_array)) {
-                                                                        $response_arr['success'] = true;
-                                                                        $response_arr['order_id'] = $order_id;
+                                                            if ($this->functions->isJson($response)) {
+
+                                                                $response = json_decode($response);
+                                                                // var_dump($response);
+
+                                                                if ($response->status && $response->status_code == 200) {
+
+                                                                    $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
+                                                                    if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                                                                        $order_id = $response->message->details->transaction_id;
+                                                                        $form_array = array(
+                                                                            'user_id' => $user_id,
+                                                                            'service' => 'payscribe',
+                                                                            'type' => 'bulk_sms',
+                                                                            'sub_type' => "",
+                                                                            'number' => $message,
+                                                                            'date' => $date,
+                                                                            'time' => $time,
+                                                                            'amount' => $this->sms_charge,
+                                                                            'amount_debited' => $amount_to_debit_user,
+                                                                            'order_id' => $order_id,
+                                                                            'response' => json_encode($response)
+                                                                        );
+                                                                        if ($this->functions->addTransactionStatus($form_array)) {
+                                                                            $response_arr['success'] = true;
+                                                                            $response_arr['order_id'] = $order_id;
+                                                                        }
                                                                     }
-                                                                }
-                                                            } else if ($response->status && $response->status_code == 201) {
+                                                                } else if ($response->status && $response->status_code == 201) {
 
 
-                                                                $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
-                                                                if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
-                                                                    $order_id = $response->message->details->transaction_id;
-                                                                    $form_array = array(
-                                                                        'user_id' => $user_id,
-                                                                        'type' => 'bulk_sms',
-                                                                        'sub_type' => "",
-                                                                        'number' => $message,
-                                                                        'date' => $date,
-                                                                        'time' => $time,
-                                                                        'amount' => $amount_to_debit_user,
-                                                                        'order_id' => $order_id,
-                                                                        'response' => json_encode($response)
-                                                                    );
-                                                                    if ($this->functions->addTransactionStatus($form_array)) {
-                                                                        $response_arr['success'] = true;
-                                                                        $response_arr['order_id'] = $order_id;
+                                                                    $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
+                                                                    if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                                                                        $order_id = $response->message->details->transaction_id;
+                                                                        $form_array = array(
+                                                                            'user_id' => $user_id,
+                                                                            'service' => 'payscribe',
+                                                                            'type' => 'bulk_sms',
+                                                                            'sub_type' => "",
+                                                                            'number' => $message,
+                                                                            'date' => $date,
+                                                                            'time' => $time,
+                                                                            'amount' => $this->sms_charge,
+                                                                            'amount_debited' => $amount_to_debit_user,
+                                                                            'order_id' => $order_id,
+                                                                            'response' => json_encode($response)
+                                                                        );
+                                                                        if ($this->functions->addTransactionStatus($form_array)) {
+                                                                            $response_arr['success'] = true;
+                                                                            $response_arr['order_id'] = $order_id;
+                                                                        }
                                                                     }
                                                                 }
                                                             }
@@ -2580,189 +3151,195 @@ class VtuController extends Controller
                                                 }
                                             }
                                         }
-                                    }
-                                } else if ($response->status == true && $response->status_code == 201) {
-                                    $response_arr['transaction_pending'] = true;
+                                    } else if ($response->status == true && $response->status_code == 201) {
+                                        $response_arr['transaction_pending'] = true;
 
-                                    $summary = "Debit Of " . $amount_to_debit_user . " For Electricity Recharge";
+                                        $summary = "Debit Of " . $amount_to_debit_user . " For Electricity Recharge";
 
-                                    if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                                        if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
 
-                                        $order_id = $response->message->details->trans_id;
-
+                                            $order_id = $response->message->details->trans_id;
 
 
-                                        $form_array = array(
-                                            'user_id' => $user_id,
-                                            'type' => 'electricity',
-                                            'sub_type' => $disco,
-                                            'date' => $date,
-                                            'time' => $time,
-                                            'amount' => $amount,
-                                            'number' => $meter_no,
-                                            'order_id' => $order_id,
-                                            'response' => json_encode($response)
-                                        );
-                                        if ($this->functions->addTransactionStatus($form_array)) {
-                                            $response_arr['success'] = true;
-                                            $response_arr['order_id'] = $order_id;
-                                            $response_arr['metertoken'] = "";
+
+                                            $form_array = array(
+                                                'user_id' => $user_id,
+                                                'service' => 'payscribe',
+                                                'type' => 'electricity',
+                                                'sub_type' => $disco,
+                                                'date' => $date,
+                                                'time' => $time,
+                                                'amount' => $amount,
+
+                                                'amount_debited' => $amount_to_debit_user,
+                                                'number' => $meter_no,
+                                                'order_id' => $order_id,
+                                                'response' => json_encode($response)
+                                            );
+                                            if ($this->functions->addTransactionStatus($form_array)) {
+                                                $response_arr['success'] = true;
+                                                $response_arr['order_id'] = $order_id;
+                                                $response_arr['metertoken'] = "";
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    } 
-                    
-                    // else if ($vtu_platform == "clubkonnect" && $club_disco != "") {
-                    //     $url = "https://www.nellobytesystems.com/APIElectricityV1.asp?UserID=".$this->CLUB_USERID."&APIKey=".$this->CLUB_APIKEY."&ElectricCompany=" . $club_disco . "&MeterType=" . $club_meter_type . "&MeterNo=" . $meter_no . "&Amount=" . $amount;
-                    //     $use_post = true;
 
-                    //     $response = $this->functions->vtu_curl($url, $use_post, $post_data = []);
-                    //     // return $response;
-                    //     if ($this->functions->isJson($response)) {
-                    //         $response = json_decode($response);
-                    //         if (is_object($response)) {
-                    //             $status = $response->status;
-                    //             $metertoken = "";
-                    //             if ($status == "ORDER_RECEIVED") {
-                    //                 $summary = "Debit Of " . $amount_to_debit_user . " For Electricity Recharge";
+                        // else if ($vtu_platform == "clubkonnect" && $club_disco != "") {
+                        //     $url = "https://www.nellobytesystems.com/APIElectricityV1.asp?UserID=".$this->CLUB_USERID."&APIKey=".$this->CLUB_APIKEY."&ElectricCompany=" . $club_disco . "&MeterType=" . $club_meter_type . "&MeterNo=" . $meter_no . "&Amount=" . $amount;
+                        //     $use_post = true;
 
-                    //                 if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                        //     $response = $this->functions->vtu_curl($url, $use_post, $post_data = []);
+                        //     // return $response;
+                        //     if ($this->functions->isJson($response)) {
+                        //         $response = json_decode($response);
+                        //         if (is_object($response)) {
+                        //             $status = $response->status;
+                        //             $metertoken = "";
+                        //             if ($status == "ORDER_RECEIVED") {
+                        //                 $summary = "Debit Of " . $amount_to_debit_user . " For Electricity Recharge";
 
-
-                    //                     if (isset($response->transactionid)) {
-                    //                         $order_id = $response->transactionid;
-                    //                     } else {
-                    //                         $order_id = "";
-                    //                     }
-
-                    //                     if (isset($response->metertoken)) {
-                    //                         $metertoken = $response->metertoken;
-                    //                         $this->functions->sendMeterTokenForPrepaidToUserByNotif($user_id, $email, $date, $time, $order_id, $disco, $meter_no, $amount, $metertoken);
-                    //                     }
-
-                    //                     $form_array = array(
-                    //                         'user_id' => $user_id,
-                    //                         'type' => 'electricity',
-                    //                         'sub_type' => $disco,
-                    //                         'date' => $date,
-                    //                         'time' => $time,
-                    //                         'amount' => $amount,
-                    //                         'number' => $meter_no,
-                    //                         'order_id' => $order_id
-                    //                     );
-                    //                     if ($this->functions->addTransactionStatus($form_array, true)) {
-                    //                         $response_arr['success'] = true;
-                    //                         $response_arr['order_id'] = $order_id;
-                    //                         $response_arr['metertoken'] = $metertoken;
+                        //                 if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
 
 
-                    //                         if ($request->sms_check == true) {
-                    //                             $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
-                    //                             $amount_to_debit_user = 5;
-                    //                             // echo $user_total_amount;
-                    //                             // echo $amount;
+                        //                     if (isset($response->transactionid)) {
+                        //                         $order_id = $response->transactionid;
+                        //                     } else {
+                        //                         $order_id = "";
+                        //                     }
 
-                    //                             if ($amount_to_debit_user <= $user_total_amount) {
+                        //                     if (isset($response->metertoken)) {
+                        //                         $metertoken = $response->metertoken;
+                        //                         $this->functions->sendMeterTokenForPrepaidToUserByNotif($user_id, $email, $date, $time, $order_id, $disco, $meter_no, $amount, $metertoken);
+                        //                     }
 
-
-                    //                                 if ($meter_type == "prepaid") {
-                    //                                     $to = $phone_number;
-                    //                                     $message = "Your Meter Token For Meter Number " . $meter_no . " Is " . $metertoken;
-                    //                                     $url = "https://api.payscribe.ng/api/v1/sms";
-
-                    //                                     $use_post = true;
-                    //                                     $post_data = [
-                    //                                         'to' => $to,
-                    //                                         'message' => $message
-                    //                                     ];
-
-
-                    //                                     // var_dump($post_data);
-
-                    //                                     $response = $this->functions->payscribeVtuCurl($url, $use_post, $post_data);
-
-
-                    //                                     if ($this->functions->isJson($response)) {
-
-                    //                                         $response = json_decode($response);
-                    //                                         // var_dump($response);
-
-                    //                                         if ($response->status && $response->status_code == 200) {
-
-                    //                                             $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
-                    //                                             if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
-                    //                                                 $order_id = $response->message->details->transaction_id;
-                    //                                                 $form_array = array(
-                    //                                                     'user_id' => $user_id,
-                    //                                                     'type' => 'bulk_sms',
-                    //                                                     'sub_type' => "",
-                    //                                                     'number' => $message,
-                    //                                                     'date' => $date,
-                    //                                                     'time' => $time,
-                    //                                                     'amount' => $amount_to_debit_user,
-                    //                                                     'order_id' => $order_id
-                    //                                                 );
-                    //                                                 if ($this->functions->addTransactionStatus($form_array)) {
-                    //                                                     $response_arr['success'] = true;
-                    //                                                     $response_arr['order_id'] = $order_id;
-                    //                                                 }
-                    //                                             }
-                    //                                         } else if ($response->status && $response->status_code == 201) {
+                        //                     $form_array = array(
+                        //                         'user_id' => $user_id,
+                        //                         'service' => 'clubkonnect',
+                        //                         'type' => 'electricity',
+                        //                         'sub_type' => $disco,
+                        //                         'date' => $date,
+                        //                         'time' => $time,
+                        //                         'amount' => $amount,
+                        //                         'number' => $meter_no,
+                        //                         'order_id' => $order_id
+                        //                     );
+                        //                     if ($this->functions->addTransactionStatus($form_array, true)) {
+                        //                         $response_arr['success'] = true;
+                        //                         $response_arr['order_id'] = $order_id;
+                        //                         $response_arr['metertoken'] = $metertoken;
 
 
-                    //                                             $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
-                    //                                             if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
-                    //                                                 $order_id = $response->message->details->transaction_id;
-                    //                                                 $form_array = array(
-                    //                                                     'user_id' => $user_id,
-                    //                                                     'type' => 'bulk_sms',
-                    //                                                     'sub_type' => "",
-                    //                                                     'number' => $message,
-                    //                                                     'date' => $date,
-                    //                                                     'time' => $time,
-                    //                                                     'amount' => $amount_to_debit_user,
-                    //                                                     'order_id' => $order_id
-                    //                                                 );
-                    //                                                 if ($this->functions->addTransactionStatus($form_array)) {
-                    //                                                     $response_arr['success'] = true;
-                    //                                                     $response_arr['order_id'] = $order_id;
-                    //                                                 }
-                    //                                             }
-                    //                                         }
-                    //                                     }
-                    //                                 }
-                    //                             }
-                    //                         }
-                    //                     }
-                    //                 }
-                    //             } else if ($status == "INVALID_MeterNo") {
-                    //                 $response_arr['invalid_meterno'] = true;
-                    //             } else if ($status == "MeterType_NOT_AVAILABLE") {
-                    //                 $response_arr['meter_type_not_available'] = true;
-                    //             } else if ($status == "INSUFFICIENT_BALANCE") {
-                    //                 // $response_arr['invalid_recipient'] = true;
+                        //                         if ($request->sms_check == true) {
+                        //                             $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
+                        //                             $amount_to_debit_user = 5;
+                        //                             // echo $user_total_amount;
+                        //                             // echo $amount;
 
-                    //             } else if ($status == "INVALID_CREDENTIALS") {
-                    //                 // $response_arr['invalid_recipient'] = true;
-                    //                 // echo "string";
+                        //                             if ($amount_to_debit_user <= $user_total_amount) {
 
-                    //             }
-                    //         }
-                    //     }
-                    // }
-                } else {
-                    $response_arr['insuffecient_funds'] = true;
+
+                        //                                 if ($meter_type == "prepaid") {
+                        //                                     $to = $phone_number;
+                        //                                     $message = "Your Meter Token For Meter Number " . $meter_no . " Is " . $metertoken;
+                        //                                     $url = "https://api.payscribe.ng/api/v1/sms";
+
+                        //                                     $use_post = true;
+                        //                                     $post_data = [
+                        //                                         'to' => $to,
+                        //                                         'message' => $message
+                        //                                     ];
+
+
+                        //                                     // var_dump($post_data);
+
+                        //                                     $response = $this->functions->payscribeVtuCurl($url, $use_post, $post_data);
+
+
+                        //                                     if ($this->functions->isJson($response)) {
+
+                        //                                         $response = json_decode($response);
+                        //                                         // var_dump($response);
+
+                        //                                         if ($response->status && $response->status_code == 200) {
+
+                        //                                             $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
+                        //                                             if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                        //                                                 $order_id = $response->message->details->transaction_id;
+                        //                                                 $form_array = array(
+                        //                                                     'user_id' => $user_id,
+                        //                                                     'service' => 'payscribe',
+                        //                                                     'type' => 'bulk_sms',
+                        //                                                     'sub_type' => "",
+                        //                                                     'number' => $message,
+                        //                                                     'date' => $date,
+                        //                                                     'time' => $time,
+                        //                                                     'amount' => $amount_to_debit_user,
+                        //                                                     'order_id' => $order_id
+                        //                                                 );
+                        //                                                 if ($this->functions->addTransactionStatus($form_array)) {
+                        //                                                     $response_arr['success'] = true;
+                        //                                                     $response_arr['order_id'] = $order_id;
+                        //                                                 }
+                        //                                             }
+                        //                                         } else if ($response->status && $response->status_code == 201) {
+
+
+                        //                                             $summary = "Debit Of " . $amount_to_debit_user . " For Bulk SMS";
+                        //                                             if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                        //                                                 $order_id = $response->message->details->transaction_id;
+                        //                                                 $form_array = array(
+                        //                                                     'user_id' => $user_id,
+                        //                                                     'service' => 'payscribe',
+                        //                                                     'type' => 'bulk_sms',
+                        //                                                     'sub_type' => "",
+                        //                                                     'number' => $message,
+                        //                                                     'date' => $date,
+                        //                                                     'time' => $time,
+                        //                                                     'amount' => $amount_to_debit_user,
+                        //                                                     'order_id' => $order_id
+                        //                                                 );
+                        //                                                 if ($this->functions->addTransactionStatus($form_array)) {
+                        //                                                     $response_arr['success'] = true;
+                        //                                                     $response_arr['order_id'] = $order_id;
+                        //                                                 }
+                        //                                             }
+                        //                                         }
+                        //                                     }
+                        //                                 }
+                        //                             }
+                        //                         }
+                        //                     }
+                        //                 }
+                        //             } else if ($status == "INVALID_MeterNo") {
+                        //                 $response_arr['invalid_meterno'] = true;
+                        //             } else if ($status == "MeterType_NOT_AVAILABLE") {
+                        //                 $response_arr['meter_type_not_available'] = true;
+                        //             } else if ($status == "INSUFFICIENT_BALANCE") {
+                        //                 // $response_arr['invalid_recipient'] = true;
+
+                        //             } else if ($status == "INVALID_CREDENTIALS") {
+                        //                 // $response_arr['invalid_recipient'] = true;
+                        //                 // echo "string";
+
+                        //             }
+                        //         }
+                        //     }
+                        // }
+                    } else {
+                        $response_arr['insuffecient_funds'] = true;
+                    }
                 }
 
                 return back()->with('data', $response_arr);
             }
 
         }
-        
-        
-        
+
+
+
     }
 
     public function validateMeterNumberDisco(Request $request)
@@ -2773,7 +3350,7 @@ class VtuController extends Controller
         // return json_encode($post_data);
 
         $user_id = $user->id;
-        $response_arr = ['success' => false, 'customer_name' => '', 'invalid_user' => false, 'use_payscribe' => false, 'productCode' => '', 'productToken' => '', 'can_vend' => true, 'cant_vend_reasons' => ''];
+        $response_arr = ['success' => false, 'customer_name' => '', 'invalid_user' => false, 'use_payscribe' => false, 'productCode' => '', 'productToken' => '', 'can_vend' => true, 'cant_vend_reasons' => '','service' => ''];
 
         $validationRules = [
             'disco' => 'required|in:eko,ikeja,abuja,ibadan,enugu,phc,kano,kaduna,jos',
@@ -2788,7 +3365,7 @@ class VtuController extends Controller
         $request->validate($validationRules);
 
 
-        
+
         $disco = $request->disco;
         $meter_type = $request->meter_type;
         $meter_number = $request->meter_number;
@@ -2843,7 +3420,7 @@ class VtuController extends Controller
         }
 
 
-        $platform = $this->functions->getVtuPlatformToUse('', 'electricity');
+        $platform = $this->functions->getVtuPlatformToUse('electricity', $disco);
         if ($platform == "payscribe") {
             // return true;
             $url = "https://api.payscribe.ng/api/v1/electricity/validate";
@@ -2863,11 +3440,37 @@ class VtuController extends Controller
 
                 if ($response->status == true && $response->status_code == 200) {
                     if ($response->message->details->can_vend) {
-                        $response_arr['success'] = true;
-                        $response_arr['customer_name'] = $response->message->details->customer_name;
-                        $response_arr['use_payscribe'] = true;
-                        $response_arr['productCode'] = $response->message->details->product_code;
+
                         // $response_arr['productToken'] = $response->message->details->productToken;
+
+                        $buypower_details = $this->functions->getMinVendWithBuypower($meter_number, $disco, $meter_type);
+                        $valid = $buypower_details['valid'];
+                        $customer_name = $buypower_details['customer_name'];
+                        $minVendAmount = $buypower_details['minVendAmount'];
+                        $maxVendAmount = $buypower_details['maxVendAmount'];
+
+                        if($valid){
+                            if ($customer_name != "") {
+
+                                if($minVendAmount <= $amount){
+                                    $response_arr['service'] = 'payscribe';
+                                    $response_arr['success'] = true;
+                                    $response_arr['customer_name'] = $response->message->details->customer_name;
+                                    $response_arr['use_payscribe'] = true;
+                                    $response_arr['productCode'] = $response->message->details->product_code;
+                                }else{
+                                    $response_arr['can_vend'] = false;
+                                    $response_arr['cant_vend_reasons'] = '<span class="text-danger">Minimum vend amount is ₦'. $minVendAmount.'</span>';
+                                }
+
+
+                            } else {
+                                $response_arr['invalid_user'] = true;
+                            }
+                        } else {
+                            $response_arr['invalid_user'] = true;
+                        }
+
                     }else{
                         $response_arr['can_vend'] = false;
                     }
@@ -2875,47 +3478,34 @@ class VtuController extends Controller
                     $response_arr['invalid_user'] = true;
                 }
             }
-        }else if($platform == "buypower"){
+        }else{
 
-            // // $url = "https://www.nellobytesystems.com/APIVerifyElectricityV1.asp?UserID=".$this->CLUB_USERID."&APIKey=".$this->CLUB_APIKEY."&ElectricCompany=".$disco_code."&meterno=".$meter_no;
-            $url = "https://api.buypower.ng/v2/check/meter?meter=" . $meter_number . "&disco=" . $disco_code . "&vendType=" . $meter_type . "&orderId=true";
-            // return $url;
-            $use_post = false;
+            $buypower_details = $this->functions->getMinVendWithBuypower($meter_number, $disco, $meter_type);
+            $valid = $buypower_details['valid'];
+            $customer_name = $buypower_details['customer_name'];
+            $minVendAmount = $buypower_details['minVendAmount'];
+            $maxVendAmount = $buypower_details['maxVendAmount'];
 
-            $response = $this->functions->buyPowerVtuCurl($url, $use_post);
+            if($valid){
+                if ($customer_name != "") {
 
-            // return($response);
-
-            if ($this->functions->isJson($response)) {
-                $response = json_decode($response);
-                if (is_object($response)) {
-                    if (isset($response->name)) {
-
-                        $customer_name = $response->name;
-                        $minVendAmount = $response->minVendAmount;
-                        $maxVendAmount = $response->maxVendAmount;
-
-                        if ($customer_name != "") {
-
-                            if($minVendAmount <= $amount){
-                                $response_arr['success'] = true;
-                                $response_arr['customer_name'] = $customer_name;
-                            }else{
-                                $response_arr['can_vend'] = false;
-                                $response_arr['cant_vend_reasons'] = '<span class="text-danger">Minimum vend amount is ₦'. $minVendAmount.'</span>';
-                            }
-                            
-
-                            
-                        } else {
-                            $response_arr['invalid_user'] = true;
-                        }
-                    } else {
-                        $response_arr['invalid_user'] = true;
+                    if($minVendAmount <= $amount){
+                        $response_arr['service'] = $platform;
+                        $response_arr['success'] = true;
+                        $response_arr['customer_name'] = $customer_name;
+                    }else{
+                        $response_arr['can_vend'] = false;
+                        $response_arr['cant_vend_reasons'] = '<span class="text-danger">Minimum vend amount is ₦'. $minVendAmount.'</span>';
                     }
+
+
                 } else {
+                    $response_arr['invalid_user'] = true;
                 }
+            } else {
+                $response_arr['invalid_user'] = true;
             }
+
         }
 
 
@@ -2955,9 +3545,9 @@ class VtuController extends Controller
         //     }
         // }
 
-        
+
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function checkIfDiscoIsAvailable(Request $request)
@@ -2995,43 +3585,54 @@ class VtuController extends Controller
                     $disco_code = "JOS";
                 }
 
-                // $response_arr['success'] = true;    
+
+                $vtu_platform = $this->functions->getVtuPlatformToUse('electricity', $disco);
+                if($vtu_platform == 'buypower'){
+
+                    $url = "https://api.buypower.ng/v2/discos/status";
+                    $use_post = false;
 
 
-                $url = "https://api.buypower.ng/v2/discos/status";
-                $use_post = false;
+                    $response = $this->functions->buyPowerVtuCurl($url, $use_post,true);
+                    // return $response;
 
+                    if ($this->functions->isJson($response)) {
+                        $response = json_decode($response);
+                        if (is_object($response)) {
 
-                $response = $this->functions->buyPowerVtuCurl($url, $use_post,true);
-                // return $response;
-
-                if ($this->functions->isJson($response)) {
-                    $response = json_decode($response);
-                    if (is_object($response)) {
-
-                        if (isset($response->$disco_code)) {
-                            $status = $response->$disco_code;
-                            if ($status) {
-                                if ($disco == "eko") {
-                                    $response_arr['success'] = true;
-                                } else {
-                                    $response_arr['success'] = true;
-                                }
+                            if (isset($response->$disco_code)) {
+                                $status = $response->$disco_code;
+                                $response_arr['success'] = $status;
                             }
                         }
                     }
+                }else{
+                    $response_arr['success'] = true;
                 }
+
             }
         }
 
-        
+
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function showElectricityPage(Request $request){
         $user  = Auth::user();
         $props['user'] = $user;
+
+        $discos = [];
+        for($i = 0; $i < count($this->discos); $i++){
+            $disco = $this->discos[$i];
+            $discos[$i] = [
+                'name' => $disco,
+                'image' => "/images/{$disco}_logo.jpg",
+                'discount' => $this->functions->getDiscountForElectricityByNetwork($disco),
+            ];
+        }
+        $props['discos'] = $discos;
+        $props['sms_charge'] = $this->sms_charge;
 
         return Inertia::render('Vtu/ElectricityTopup',$props);
     }
@@ -3055,7 +3656,7 @@ class VtuController extends Controller
         $request->validate($validationRules);
 
 
-        
+
         // return $post_data->selected_plan['product_id'];
         $network = $request->network;
         if (isset($request->selected_plan['product_id'])) {
@@ -3104,7 +3705,7 @@ class VtuController extends Controller
 
             $api_choice = false;
 
-            
+
 
             // return $serviceID;
             // return $amount_to_debit_user;
@@ -3141,6 +3742,7 @@ class VtuController extends Controller
                                     $order_id = "TT" . $response->data->reference;
                                     $form_array = array(
                                         'user_id' => $user_id,
+                                        'service' => 'eminence',
                                         'type' => 'data',
                                         'sub_type' => $network,
                                         'number' => $phone_number,
@@ -3162,10 +3764,10 @@ class VtuController extends Controller
                 }
             }
         }
-        
+
 
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function purchaseGsubzData(Request $request)
@@ -3185,7 +3787,7 @@ class VtuController extends Controller
 
         $request->validate($validationRules);
 
-        // return $post_data->selected_plan['product_id'];
+        // return $request->selected_plan;
         $network = $request->network;
         if (isset($request->selected_plan['product_id'])) {
 
@@ -3210,11 +3812,11 @@ class VtuController extends Controller
                     // code...
 
                     $gsubz_type = $request->selected_plan['gsubz_type'];
-                   
+
                     $net = "Mtn";
                     $perc_disc = 0.04;
                     $additional_charge = 25;
-                    
+
                 }
             } else if ($network == "glo") {
                 // $network = "GLO";
@@ -3245,22 +3847,18 @@ class VtuController extends Controller
             // return $amount;
             // echo $product_id;
             $new_price = $this->functions->getDataPlanNewPrice($network, $vtu_platform, $plan, $amount);
-            
-            
 
-            if($amount > 0 && $new_price >= $amount){
-                // if ($amount != 0) {
-                //     // $amount_to_debit_user = round((0.04 * $amount) + $amount, 2);
-                //     // $amount_to_debit_user += $additional_charge;
-                // }
 
-                $amount_to_debit_user = $new_price;
+            $vtu_plan = VtuPlatform::where('name', "{$network}_data")->first();
+            if($amount > 0 && $new_price >= $amount && !is_null($vtu_plan)){
+                if ($amount != 0) {
+                    $amount_to_debit_user = round($new_price - (($vtu_plan->purchaser_percentage / 100) * $new_price), 2);
+                }
 
-            
+
 
                 // return $serviceID;
                 // return $amount_to_debit_user;
-
 
 
                 if ($amount_to_debit_user != 0) {
@@ -3282,8 +3880,9 @@ class VtuController extends Controller
                         ];
 
 
-                        $response = $this->functions->gSubzVtuCurl($url, $use_post, $data);
-                        // $response = '{"code":200,"status":"TRANSACTION_SUCCESSFUL","transactionID":3075647208, "description":"TRANSACTION_SUCCESSFUL","content":{"requestID":"","amount":"120","phone":"08140558898","serviceID":"mtn_sme","amountPaid":120,"initialBalance":"1400","finalBalance":1280,"image":"//gsubz.com/uploads/service/368483884.png","fee":"0","serviceName":"MTN-SME-Data(*461*4#)","status":"TRANSACTION_SUCCESSFUL","code":200,"description":"TRANSACTION_SUCCESSFUL","date":"2022-05-03T01:48:52+01:00","diplayValue":null},"gateway":{"referrer":""}}';
+                        // $response = $this->functions->gSubzVtuCurl($url, $use_post, $data);
+                        $debited = (float) $amount - 10;
+                        $response = '{"code":200,"status":"successful","transactionID":3032022098,"amount":"'.$amount.'","phone":"'.$phone_number.'","serviceID":"'.$serviceID.'","amountPaid": '.$debited.',"initialBalance":"26343.1321824","finalBalance":26207.14651931756452540867030620574951171875,"date":"2024-08-05T07:43:32+01:00","api_response":"You have successfully gifted 2348024323040 with '.$request->selected_plan['product_name'].' of Data. valid till 9\/3\/2024 12:00:00 PM"}';
 
                         // return $data;
                         // return $response;
@@ -3296,16 +3895,20 @@ class VtuController extends Controller
 
                                     $summary = "Debit Of " . $amount_to_debit_user . " For Data Recharge";
                                     if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                                        $response_arr['amount_debited'] = $amount_to_debit_user;
                                         $order_id = "GS" . $response->transactionID;
                                         $form_array = array(
                                             'user_id' => $user_id,
+                                            'service' => 'gsubz',
+                                            'discount' => $vtu_plan->purchaser_percentage,
                                             'type' => 'data',
                                             'sub_type' => $network,
                                             'number' => $phone_number,
                                             'response' => json_encode($response),
                                             'date' => $date,
                                             'time' => $time,
-                                            'amount' => $amount_to_debit_user,
+                                            'amount' => $new_price,
+                                            'amount_debited' => $amount_to_debit_user,
                                             'order_id' => $order_id
                                         );
                                         if ($this->functions->addTransactionStatus($form_array)) {
@@ -3323,9 +3926,9 @@ class VtuController extends Controller
 
             }
         }
-        
+
         return back()->with('data',$response_arr);
-        
+
     }
 
 
@@ -3347,18 +3950,19 @@ class VtuController extends Controller
 
         $request->validate($validationRules);
 
-        
-        // return $post_data->selected_plan['product_id'];
+
+        // return $request->selected_plan;
         $network = $request->network;
-        if (isset($request->selected_plan['product_id'])) {
+        if (isset($request->selected_plan['product_id']) && isset($request->selected_plan['product_id'])) {
 
             $product_id = $request->selected_plan['product_id'];
+            $product_code = $request->selected_plan['product_code'];
             if ($network == "mtn") {
 
                 $mobilenetwork_code = "01";
                 $perc_disc = 0.04;
-                
-                
+
+
                 $amt_to_add = 25;
             } elseif ($network == "glo") {
 
@@ -3380,25 +3984,27 @@ class VtuController extends Controller
 
 
 
-            $amount = $this->functions->getVtuDataBundleCostByProductId($network, $product_id);
+            $amount = $this->functions->getVtuDataBundleCostByProductId($network, $product_code);
 
-            $new_price = $this->functions->getDataPlanNewPrice($network, 'clubkonnect', $product_id, $amount);
+            $new_price = $this->functions->getDataPlanNewPrice($network, 'clubkonnect', $product_code, $amount);
 
 
 
             if ($amount > 0 && $new_price >= $amount) {
 
-
-                if ($amount != 0) {
+                $vtu_plan = VtuPlatform::where('name', "{$network}_data")->first();
+                if ($amount != 0 && !is_null($vtu_plan)) {
                     $phone_number = $request->phone_number;
 
-                    $amount_to_debit_user = $new_price;
+                    // $amount_to_debit_user = $new_price;
+
+                    $amount_to_debit_user = round($new_price - (($vtu_plan->purchaser_percentage / 100) * $new_price), 2);
+
 
                     // $amount_to_debit_user = round(($perc_disc * $amount) + $amount,2);
 
                     // $amount_to_debit_user = $amount + $amt_to_add;
 
-                    
                     // return $amount_to_debit_user;
 
 
@@ -3419,8 +4025,10 @@ class VtuController extends Controller
                         //  'recipent' => $mobile_no
                         // );
 
-                        $response = $this->functions->vtu_curl($url, $use_post, $post_data = []);
+                        $debited = $new_price - 10;
+                        // $response = $this->functions->vtu_curl($url, $use_post, $post_data = []);
                         // $response = json_encode(array('status' => 'ORDER_RECEIVED', 'orderid' => '542425'));
+                        $response = '{"orderid":"6620693114","statuscode":"100","status":"ORDER_RECEIVED","productname":"'.$request->selected_plan['product_name'].'","amount":"'.$debited.'","mobilenetwork":"'.strtoupper($network).'","mobilenumber":"'.$phone_number.'","walletbalance":"55259.765625"}';
                         // return $response;
                         if ($this->functions->isJson($response)) {
                             $response = json_decode($response);
@@ -3428,16 +4036,20 @@ class VtuController extends Controller
                             if ($response->status == "ORDER_RECEIVED") {
                                 $summary = "Debit Of " . $amount_to_debit_user . " For Data Recharge";
                                 if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                                    $response_arr['amount_debited'] = $amount_to_debit_user;
                                     $order_id = $response->orderid;
                                     $form_array = array(
                                         'user_id' => $user_id,
+                                        'service' => 'clubkonnect',
+                                        'discount' => $vtu_plan->purchaser_percentage,
                                         'type' => 'data',
                                         'sub_type' => $network,
                                         'number' => $phone_number,
                                         'response' => json_encode($response),
                                         'date' => $date,
                                         'time' => $time,
-                                        'amount' => $amount_to_debit_user,
+                                        'amount' => $new_price,
+                                        'amount_debited' => $amount_to_debit_user,
                                         'order_id' => $order_id
                                     );
                                     if ($this->functions->addTransactionStatus($form_array)) {
@@ -3453,12 +4065,12 @@ class VtuController extends Controller
                 }
             }
         }
-        
 
 
-       
+
+
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function purchasePayscribeData(Request $request)
@@ -3479,7 +4091,7 @@ class VtuController extends Controller
         $request->validate($validationRules);
 
 
-        
+
         // return $post_data->selected_plan['product_id'];
         $network = $request->network;
         if (isset($request->selected_plan['product_id'])) {
@@ -3489,13 +4101,14 @@ class VtuController extends Controller
                 $amount = $this->functions->getPayscribeVtuDataBundleCostByProductId($network, $product_id);
 
                 $new_price = $this->functions->getDataPlanNewPrice($network, 'payscribe', $product_id, $amount);
-                if ($amount > 0 && $new_price >= $amount) {
+                $vtu_plan = VtuPlatform::where('name', "{$network}_data")->first();
+
+                if ($amount > 0 && $new_price >= $amount && !is_null($vtu_plan)) {
                     if ($amount != 0) {
                         $phone_number = $request->phone_number;
 
-                        // $amount_to_debit_user = round((0.04 * $amount) + $amount, 2);
-                        // $amount_to_debit_user += 25;
-                        $amount_to_debit_user = $new_price;
+                        $amount_to_debit_user = round($new_price - (($vtu_plan->purchaser_percentage / 100) * $new_price), 2);
+
 
                         // return $amount_to_debit_user;
 
@@ -3532,16 +4145,19 @@ class VtuController extends Controller
 
                                     $summary = "Debit Of " . $amount_to_debit_user . " For Data Recharge";
                                     if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                                        $response_arr['amount_debited'] = $amount_to_debit_user;
                                         $order_id = $response->message->details->transaction_id;
                                         $form_array = array(
                                             'user_id' => $user_id,
+                                            'service' => 'payscribe',
                                             'type' => 'data',
                                             'sub_type' => $network,
                                             'number' => $phone_number,
                                             'response' => json_encode($response),
                                             'date' => $date,
                                             'time' => $time,
-                                            'amount' => $amount_to_debit_user,
+                                            'amount' => $new_price,
+                                            'amount_debited' => $amount_to_debit_user,
                                             'order_id' => $order_id
                                         );
                                         if ($this->functions->addTransactionStatus($form_array)) {
@@ -3554,16 +4170,19 @@ class VtuController extends Controller
 
                                     $summary = "Debit Of " . $amount_to_debit_user . " For Data Recharge";
                                     if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                                        $response_arr['amount_debited'] = $amount_to_debit_user;
                                         $order_id = $response->message->details->transaction_id;
                                         $form_array = array(
                                             'user_id' => $user_id,
+                                            'service' => 'payscribe',
                                             'type' => 'data',
                                             'sub_type' => $network,
                                             'number' => $phone_number,
                                             'response' => json_encode($response),
                                             'date' => $date,
                                             'time' => $time,
-                                            'amount' => $amount_to_debit_user,
+                                            'amount' => $new_price,
+                                            'amount_debited' => $amount_to_debit_user,
                                             'order_id' => $order_id
                                         );
                                         if ($this->functions->addTransactionStatus($form_array)) {
@@ -3604,15 +4223,12 @@ class VtuController extends Controller
 
                 $amount = $this->functions->getPayscribeVtuDataBundleCostByProductId($network, $product_id);
                 $new_price = $this->functions->getDataPlanNewPrice($network, 'payscribe', $product_id, $amount);
-                // echo $product_id;
-                // $amount_to_debit_user = 0;
-                // if ($amount != 0) {
-                //     $amount_to_debit_user = round((0.04 * $amount) + $amount, 2);
-                //     $amount_to_debit_user += $additional_charge;
-                // }
 
-                if ($amount > 0 && $new_price >= $amount) {
-                    $amount_to_debit_user = $new_price;
+                $vtu_plan = VtuPlatform::where('name', "{$network}_data")->first();
+
+                if ($amount > 0 && $new_price >= $amount && !is_null($vtu_plan)) {
+                    $amount_to_debit_user = round($new_price - (($vtu_plan->purchaser_percentage / 100) * $new_price), 2);
+
 
                     if ($amount_to_debit_user != 0) {
 
@@ -3636,9 +4252,9 @@ class VtuController extends Controller
                             }
 
 
-                            // $response = $this->functions->payscribeVtuCurl($url, $use_post, $data);
+                            $response = $this->functions->payscribeVtuCurl($url, $use_post, $data);
 
-                            $response = '{"status":true,"message":{"description":"Order received. Transaction in progress.","details":{"processed":[{"number":"08169254598","amount":"250","id":"PS-dt-4NK16804094751450lYF","response":"Dear Customer, You have successfully shared 1GB Data to 2348169254598."}],"transaction_status":"success","amount":250,"total_charge":250,"discount":0,"transaction_id":"PS-dt-4NK16804094751450lYF","datetime":"2023-04-02 04:24:37"}},"status_code":200}';
+                            // $response = '{"status":true,"message":{"description":"Order received. Transaction in progress.","details":{"processed":[{"number":"08169254598","amount":"250","id":"PS-dt-4NK16804094751450lYF","response":"Dear Customer, You have successfully shared 1GB Data to 2348169254598."}],"transaction_status":"success","amount":250,"total_charge":250,"discount":0,"transaction_id":"PS-dt-4NK16804094751450lYF","datetime":"2023-04-02 04:24:37"}},"status_code":200}';
 
 
                             if ($this->functions->isJson($response)) {
@@ -3648,16 +4264,19 @@ class VtuController extends Controller
 
                                     $summary = "Debit Of " . $amount_to_debit_user . " For Data Recharge";
                                     if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                                        $response_arr['amount_debited'] = $amount_to_debit_user;
                                         $order_id = $response->message->details->transaction_id;
                                         $form_array = array(
                                             'user_id' => $user_id,
+                                            'service' => 'payscribe',
                                             'type' => 'data',
                                             'sub_type' => $network,
                                             'number' => $phone_number,
                                             'response' => json_encode($response),
                                             'date' => $date,
                                             'time' => $time,
-                                            'amount' => $amount_to_debit_user,
+                                            'amount' => $new_price,
+                                            'amount_debited' => $amount_to_debit_user,
                                             'order_id' => $order_id
                                         );
                                         if ($this->functions->addTransactionStatus($form_array)) {
@@ -3669,16 +4288,19 @@ class VtuController extends Controller
                                     $response_arr['transaction_pending'] = true;
                                     $summary = "Debit Of " . $amount_to_debit_user . " For Data Recharge";
                                     if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
+                                        $response_arr['amount_debited'] = $amount_to_debit_user;
                                         $order_id = $response->message->details->transaction_id;
                                         $form_array = array(
                                             'user_id' => $user_id,
+                                            'service' => 'payscribe',
                                             'type' => 'data',
                                             'sub_type' => $network,
                                             'number' => $phone_number,
                                             'response' => json_encode($response),
                                             'date' => $date,
                                             'time' => $time,
-                                            'amount' => $amount_to_debit_user,
+                                            'amount' => $new_price,
+                                            'amount_debited' => $amount_to_debit_user,
                                             'order_id' => $order_id
                                         );
                                         if ($this->functions->addTransactionStatus($form_array)) {
@@ -3695,10 +4317,10 @@ class VtuController extends Controller
                 }
             }
         }
-        
+
 
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function purchase9mobileComboData(Request $request)
@@ -3736,6 +4358,7 @@ class VtuController extends Controller
                 if ($data_amount != "") {
                     $form_array = array(
                         'user_id' => $user_id,
+                        'service' => 'combo',
                         'type' => 'data',
                         'sub_type' => '9mobile',
                         'number' => $phone_number,
@@ -3764,11 +4387,11 @@ class VtuController extends Controller
                 $response_arr['insuffecient_funds'] = true;
             }
         }
-        
+
 
 
         return back()->with('data',$response_arr);
-        
+
     }
 
     public function getDataPlansByNetwork(Request $request){
@@ -3801,7 +4424,17 @@ class VtuController extends Controller
         $user = Auth::user();
 
         $props['user'] = $user;
-        
+        $networks = [];
+        for($i = 0; $i < count($this->networks); $i++){
+            $network = $this->networks[$i];
+            $networks[$i] = [
+                'name' => $network,
+                'image' => "/images/{$network}_logo.png",
+                'discount' => $this->functions->getDiscountForDataByNetwork($network),
+            ];
+        }
+        $props['networks'] = $networks;
+
         return Inertia::render('Vtu/InternetData',$props);
     }
 
@@ -3825,7 +4458,7 @@ class VtuController extends Controller
         $request->validate($validationRules);
 
 
-        
+
         $network = $request->network;
         $amount = $request->amount;
         $quantity = $request->quantity;
@@ -3895,6 +4528,7 @@ class VtuController extends Controller
 
                             $form_array = array(
                                 'user_id' => $user_id,
+                                'service' => 'clubkonnect',
                                 'type' => 'e-pin',
                                 'sub_type' => 'payscribe_epin',
 
@@ -3922,7 +4556,7 @@ class VtuController extends Controller
         } else {
             $response_arr['insuffecient_funds'] = true;
         }
-        
+
 
 
         return back()->with('data',$response_arr);
@@ -3965,7 +4599,7 @@ class VtuController extends Controller
             $recharge_type = $request->recharge_type;
             $phone_number = $request->phone_number;
             $airtime_bonus = $request->airtime_bonus;
-            
+
 
             if ($network == "mtn") {
                 $mobilenetwork_code = "01";
@@ -4001,9 +4635,10 @@ class VtuController extends Controller
             $use_post = false;
 
             $vtu_platform = $this->functions->getVtuPlatformToUse('airtime', $network);
-            
+
             $vtu_platform_shrt = substr($vtu_platform, 0, 8);
             // dd($vtu_platform_shrt);
+            $debited = $amount - 20;
             if ($vtu_platform == "gsubz") {
 
                 $api = $this->functions->getGsubzApiKey();
@@ -4017,23 +4652,28 @@ class VtuController extends Controller
 
 
 
-                $response = $this->functions->gSubzVtuCurl($url_3, true, $post_data);
+                // $response = $this->functions->gSubzVtuCurl($url_3, true, $post_data);
                 // $response = '{"code":200,"status":"TRANSACTION_SUCCESSFUL", "transactionID":2430882514, "description":"TRANSACTION_SUCCESSFUL","content":{"requestID":"","amount":"100","phone":"08140558898","serviceID":"mtn","amountPaid":100,"initialBalance":"1280","finalBalance":1180,"image":"//gsubz.com/uploads/service/1951868123.png","fee":"0","serviceName":"MTN-Airtime","status":"TRANSACTION_SUCCESSFUL","code":200,"description":"TRANSACTION_SUCCESSFUL","date":"2022-05-03T01:52:44+01:00","diplayValue":null},"gateway":{"referrer":""}}';
+
+                $response = '{"code":200,"status":"successful","transactionID":3820577835,"amount":"'.$amount.'","phone":"'.$phone_number.'","serviceID":"'.$serviceID.'","amountPaid":'.$debited.',"initialBalance":"26731.897415374","finalBalance":26634.897415374,"date":"2024-08-05T07:33:09+01:00","api_response":"No response"}';
 
                 // return $response;
                 if ($this->functions->isJson($response)) {
                     $response = json_decode($response);
                     if (is_object($response)) {
+                        // return $response;
                         $code = $response->code;
                         $status = $response->status;
 
                         if ($code == 200) {
                             $summary = "Debit Of " . $amount_to_debit_user . " For Airtime Recharge";
                             if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
-
+                                $response_arr['amount_debited'] = $amount_to_debit_user;
                                 $order_id = "GS" . $response->transactionID;
-                                $form_array = array(
+                                $form_array = [
                                     'user_id' => $user_id,
+                                    'service' => 'gsubz',
+                                    'discount' => $discount,
                                     'type' => 'airtime',
                                     'sub_type' => $network,
                                     'number' => $phone_number,
@@ -4041,8 +4681,9 @@ class VtuController extends Controller
                                     'date' => $date,
                                     'time' => $time,
                                     'amount' => $amount,
+                                    'amount_debited' => $amount_to_debit_user,
                                     'order_id' => $order_id
-                                );
+                                ];
                                 if ($this->functions->addTransactionStatus($form_array)) {
                                     $response_arr['success'] = true;
                                     $response_arr['order_id'] = $order_id;
@@ -4054,8 +4695,10 @@ class VtuController extends Controller
             } else {
                 if ($vtu_platform_shrt != "eminence") {
 
-                    $response = $this->functions->vtu_curl($url, $use_post, $post_data = []);
+                    // $response = $this->functions->vtu_curl($url, $use_post, $post_data = []);
                     // $response = json_encode(array('status' => 'ORDER_RECEIVED', 'orderid' => '5424425'));
+
+                    $response = '{"orderid":"6620722500","statuscode":"100","status":"ORDER_RECEIVED","productname":"'.$amount.'Credit","amount":"'.$debited.'","mobilenetwork":"'.$eminence_ntwrk.'","mobilenumber":"'.$phone_number.'","walletbalance":"52207.265625"}';
                     // return $response;
 
                     if ($this->functions->isJson($response)) {
@@ -4064,19 +4707,23 @@ class VtuController extends Controller
                             $status = $response->status;
 
                             if ($status == "ORDER_RECEIVED") {
+
                                 $summary = "Debit Of " . $amount_to_debit_user . " For Airtime Recharge";
                                 if ($this->functions->debitUser($user_id, $amount_to_debit_user, $summary)) {
                                     $response_arr['amount_debited'] = $amount_to_debit_user;
                                     $order_id = $response->orderid;
                                     $form_array = array(
                                         'user_id' => $user_id,
+                                        'service' => 'clubkonnect',
                                         'type' => 'airtime',
                                         'sub_type' => $network,
                                         'number' => $phone_number,
                                         'response' => json_encode($response),
+                                        'discount' => $discount,
                                         'date' => $date,
                                         'time' => $time,
                                         'amount' => $amount,
+                                        'amount_debited' => $amount_to_debit_user,
                                         'order_id' => $order_id
                                     );
                                     if ($this->functions->addTransactionStatus($form_array)) {
@@ -4101,7 +4748,7 @@ class VtuController extends Controller
                     }
                 } else {
                     $type = strtoupper(substr($vtu_platform, 9));
-                    
+
                     $post_data = [
                         "phone" => $phone_number,
                         "amount" => $amount,
@@ -4126,6 +4773,7 @@ class VtuController extends Controller
                                     $order_id = $response->data->reference;
                                     $form_array = array(
                                         'user_id' => $user_id,
+                                        'service' => 'eminence',
                                         'type' => 'airtime',
                                         'sub_type' => $network,
                                         'number' => $phone_number,
@@ -4147,7 +4795,7 @@ class VtuController extends Controller
         } else {
             $response_arr['insuffecient_funds'] = true;
         }
-    
+
 
         return back()->with('data',$response_arr);
     }
@@ -4155,7 +4803,7 @@ class VtuController extends Controller
     public function request9mobileComboRecharge(Request $request){
         $date = date("j M Y");
         $time = date("h:i:sa");
-        
+
         $user = Auth::user();
 
 
@@ -4173,7 +4821,7 @@ class VtuController extends Controller
         $request->validate($validationRules);
 
 
-        
+
         $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
         $amount = $request->amount;
         if ($amount <= $user_total_amount) {
@@ -4184,6 +4832,7 @@ class VtuController extends Controller
 
             $form_array = array(
                 'user_id' => $user_id,
+                'service' => 'combo',
                 'type' => 'airtime',
                 'sub_type' => $network,
                 'number' => $phone_number,
@@ -4210,7 +4859,7 @@ class VtuController extends Controller
         } else {
             $response_arr['insuffecient_funds'] = true;
         }
-        
+
 
         return back()->with('data',$response_arr);
     }
@@ -4219,26 +4868,18 @@ class VtuController extends Controller
         $user = Auth::user();
 
         $props['user'] = $user;
-        $props['networks'] = [
-            [
-                'name' => 'mtn',
-                'image' => '/images/mtn_logo.png',
-                'discount' => $this->functions->getDiscountForAirtimeByNetwork('mtn'),
-            ], [
-                'name' => 'glo',
-                'image' => '/images/glo_logo.jpg',
-                'discount' => $this->functions->getDiscountForAirtimeByNetwork('glo'),
-            ], [
-                'name' => 'airtel',
-                'image' => '/images/airtel_logo.png',
-                'discount' => $this->functions->getDiscountForAirtimeByNetwork('airtel'),
-            ], [
-                'name' => '9mobile',
-                'image' => '/images/9mobile-1.png',
-                'discount' => $this->functions->getDiscountForAirtimeByNetwork('9mobile'),
-            ],
-        ];
 
+
+        $networks = [];
+        for($i = 0; $i < count($this->networks); $i++){
+            $network = $this->networks[$i];
+            $networks[$i] = [
+                'name' => $network,
+                'image' => "/images/{$network}_logo.png",
+                'discount' => $this->functions->getDiscountForAirtimeByNetwork($network),
+            ];
+        }
+        $props['networks'] = $networks;
 
         return Inertia::render('Vtu/AirtimeTopup', $props);
     }

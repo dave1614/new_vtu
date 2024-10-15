@@ -86,12 +86,19 @@ import axios from "axios";
 import _ from 'lodash';
 
 const page = usePage();
-const props = page.props;
-const user = props.user;
-const test_plans = props.test_plans;
+const props = defineProps({
+  user: {
+    type: Object
+  },
+  tvs: {
+    type: Array
+  }
+});
+
 const mainStore = useMainStore();
 
 const btn_hovered = ref(false);
+const tv_discount = ref(props.tvs[0].discount);
 
 
 
@@ -125,9 +132,11 @@ const buy_cable_request = useForm({
 
   decoder_number: null,
   selected_plan: {},
-  
+
   customer_name: '',
   platform: '',
+  payable: 0.00,
+  discount: props.tvs[0].discount,
 
 });
 
@@ -152,12 +161,12 @@ const confirmAndProceedWithTransaction = () => {
   var operator = buy_cable_request.operator;
 
   var decoder_number = buy_cable_request.decoder_number;
-  
+
 
   console.log(selected_plan)
   console.log(operator)
   console.log(decoder_number)
-  
+
 
   if (Object.keys(selected_plan).length > 0) {
 
@@ -173,14 +182,16 @@ const confirmAndProceedWithTransaction = () => {
 
         if (response.success && response.order_id !== "") {
           buy_cable_request.selected_plan_index = null;
+          var plan_name = buy_cable_request.selected_plan.name;
           buy_cable_request.selected_plan = {};
           var order_id = response.order_id;
           var transaction_pending = response.transaction_pending;
+          var amount_debited = response.amount_debited;
           if (!transaction_pending) {
 
             Swal.fire({
               title: 'Info',
-              html: `You Have Successfully Recharged Decoder With Number: <em class='text-primary'>${decoder_number}.</em> The Order Id For This Transaction Is <em class='text-primary'>${order_id}</em>`,
+              html: `You Have Successfully Recharged Your <em class='text-primary'>${buy_cable_request.operator}</em> Decoder With Bouquet <em class='text-primary'>${plan_name}</em>.  ${buy_cable_request.operator == 'gotv' ? 'IUC' : 'Smartcard' } Number: <em class='text-primary'>${decoder_number}.</em> The Order Id For This Transaction Is <em class='text-primary'>${order_id}</em>. You Have Been Debited <em class='text-primary'>₦${mainStore.addCommas(amount_debited)}</em>`,
               icon: 'info',
               confirmButtonColor: '#3085d6',
               allowEscapeKey: false,
@@ -273,19 +284,19 @@ const reEnterCableDetails = () => {
 
   buy_cable_request.customer_name = "";
   cable_plans.value = [];
-  
+
   show_cable_plans.value = false;
   cable_plans_card_title.value = "";
 };
 
 const purchasePlan = (index) => {
 
-  
+
   buy_cable_request.selected_plan_index = index;
   buy_cable_request.selected_plan = cable_plans.value[index];
-  
+
   console.log(buy_cable_request.selected_plan);
-  
+
 
 };
 
@@ -324,7 +335,7 @@ const verifyDecoderNumber = () => {
           }).then((result) => {
             buy_cable_request.customer_name = response.customer_name;
             cable_plans.value = response.cable_plans;
-            
+
             show_cable_plans.value = true;
             cable_plans_card_title.value = "Cable Operator: <em class='text-primary'>" + operator + "</em><br>";
             if (operator == "dstv" || operator == "startimes") {
@@ -369,10 +380,11 @@ const verifyDecoderNumber = () => {
 
 };
 
-const selectedTvOperator = (operator) => {
+const selectedTvOperator = (operator, discount) => {
 
   if (buy_cable_request.operator != operator) {
     buy_cable_request.operator = operator;
+    buy_cable_request.discount = discount;
     if (operator == "dstv" || operator == "startimes") {
       decoder_number_title.value = "Enter Smart Card Number";
     } else {
@@ -410,42 +422,29 @@ const selectedTvOperator = (operator) => {
         <div class="mx-2 my-9">
           <div class="grid grid-cols-12 gap-1">
 
-            <div class="col-span-2 sm:col-span-1 card operator-card"
-              :class="buy_cable_request.operator == 'dstv' ? 'selected' : ''" @click="selectedTvOperator('dstv')">
-              <div class="card-body text-center">
-                <img src="/images/dstv_logo.jpg" alt="DSTV" class="">
-                <!-- <p>MTN</p> -->
+            <template v-for="(tv, index) in tvs" :key="index">
+              <div :class="buy_cable_request.operator == tv.name ? 'selected' : ''"
+                @click="selectedTvOperator(tv.name, tv.discount)"
+                class="col-span-2 sm:col-span-1 card operator-card">
+                <div class="card-body text-center">
+                  <div v-if="tv.discount > 0"
+                    class="bg-primary rounded-lg mb-2 text-xs px-1 py-1 font-semibold text-white">{{ tv.discount
+                    }}% discount</div>
+                  <img :src="tv.image" :alt="tv.name" class="">
+                  <!-- <p>MTN</p> -->
+                </div>
+
               </div>
 
-            </div>
+              <div class="col-span-1">
 
-            <div class="col-span-1">
-
-            </div>
-
-            <div class="col-span-2 sm:col-span-1 card operator-card"
-              :class="buy_cable_request.operator == 'gotv' ? 'selected' : ''" @click="selectedTvOperator('gotv')">
-              <div class="card-body text-center">
-                <img src="/images/gotv_logo.jpg" alt="GOTV" class="">
-                <!-- <p>MTN</p> -->
               </div>
-            </div>
 
-            <div class="col-span-1">
-
-            </div>
-
-            <div class="col-span-2 sm:col-span-1 card operator-card"
-              :class="buy_cable_request.operator == 'startimes' ? 'selected' : ''" @click="selectedTvOperator('startimes')">
-              <div class="card-body text-center">
-                <img src="/images/startimes_logo.jpg" alt="STARTIMES" class="col-12">
-                <!-- <p>MTN</p> -->
-              </div>
-            </div>
+            </template>
 
           </div>
 
-         
+
           <div class="row">
             <div v-if="buy_cable_request.errors.operator" class="form-error">{{ buy_cable_request.errors.operator }}
             </div>
@@ -457,10 +456,10 @@ const selectedTvOperator = (operator) => {
 
         <FormField class="" label="">
           <FormControl v-model="buy_cable_request.decoder_number" :error="buy_cable_request.errors.decoder_number"
-           type="text" id="decoder_number" placeholder="e.g 08127027321" />
+           type="text" id="decoder_number" placeholder="" />
         </FormField>
 
-        
+
 
 
         <button :class="buy_cable_request.processing ? 'opacity-80 cursor-not-allowed' : ''"
@@ -487,26 +486,26 @@ const selectedTvOperator = (operator) => {
                 :class="buy_cable_request.selected_plan_index == index ? ' selected' : '' "
                 v-for="(plan, index) in cable_plans" :key="index">
                 <div class="card-body grid grid-cols-12 gap-2">
-      
+
                   <div class="col-span-1 sm:col-span-3 col-3 col-sm-1">
                     <span>{{ index + 1 }} .</span>
                   </div>
-      
+
                   <div class="col-span-6 sm:col-span-4 col-4 col-sm-6">
                     <span v-html="plan.name"></span>
                   </div>
-      
+
                   <div class="col-span-5 col-5 col-sm-5">
                     <span v-html="'₦' + mainStore.addCommas(plan.amount)"></span>
                   </div>
-      
-                
+
+
                 </div>
               </div>
             </div>
           </div>
-      
-         
+
+
         </div>
       </CardBox>
 
@@ -542,13 +541,24 @@ const selectedTvOperator = (operator) => {
                   <td>COST</td>
                   <td><em v-html="'₦ ' + mainStore.addCommas(buy_cable_request.selected_plan.amount)" class="text-primary"></em></td>
                 </tr>
-              
-                <tr>
+
+                <!-- <tr>
                   <td>PAYABLE</td>
                   <td><em v-html="'₦ ' + mainStore.addCommas(buy_cable_request.selected_plan.amount)" class="text-primary"></em></td>
+                </tr> -->
+
+                <tr>
+                  <td>DISCOUNT</td>
+                  <td><em v-html="`${buy_cable_request.discount}%`" class="text-primary"></em></td>
+
+                </tr>
+                <tr>
+                  <td>PAYABLE</td>
+                  <td><em v-html="'₦ ' + mainStore.addCommas(parseFloat(buy_cable_request.selected_plan.amount - ((buy_cable_request.discount / 100) * buy_cable_request.selected_plan.amount)).toFixed(2))" class="text-primary"></em></td>
+                  <!-- <td><em v-html="'₦ ' + mainStore.addCommas(buy_cable_request.payable)" class="text-primary"></em></td> -->
                 </tr>
               </tbody>
-              
+
             </table>
           </div>
 
@@ -568,7 +578,7 @@ const selectedTvOperator = (operator) => {
     <FloatingTextButton :styles="'background: 9124a3;'" :title="'Proceed'">
 
       <!-- <i class="fas fa-arrow-right" style="font-size: 25px; color: #fff;"></i> -->
-      <span style="font-size: 18px; font-weight: bold; color: #fff;">Submit</span>
+      <span class="text-lg font-bold text-white text-center">Submit</span>
     </FloatingTextButton>
   </div>
 </template>

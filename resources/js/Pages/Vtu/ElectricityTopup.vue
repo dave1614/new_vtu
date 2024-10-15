@@ -41,6 +41,815 @@
   }
 }
 </style>
+
+<script setup>
+import {
+  mdiMonitorCellphone,
+  mdiTableBorder,
+  mdiTableOff,
+  mdiGithub,
+  mdiHospitalBuilding,
+  mdiClose,
+  mdiCellphoneDock,
+  mdiAccountCog,
+  mdiAccountCash,
+  mdiCurrencyNgn,
+  mdiPhone,
+  mdiGmail,
+  mdiLightningBoltOutline,
+  mdiHistory,
+} from "@mdi/js";
+
+import FormCheckRadioGroup from "@/Components/FormCheckRadioGroup.vue";
+import FormField from "@/Components/FormField.vue";
+import FormControl from "@/Components/FormControl.vue";
+import SectionMain from "@/Components/SectionMain.vue";
+import NotificationBar from "@/Components/NotificationBar.vue";
+import CardBox from "@/Components/CardBox.vue";
+import LayoutAuthenticated from "@/Layouts/LayoutAuthenticated.vue";
+import SectionTitleLineWithButton from "@/Components/SectionTitleLineWithButton.vue";
+import BaseDivider from "@/Components/BaseDivider.vue";
+import BaseButton from "@/Components/BaseButton.vue";
+import BaseButtons from "@/Components/BaseButtons.vue";
+import BaseLevel from "@/Components/BaseLevel.vue";
+import CardBoxComponentEmpty from "@/Components/CardBoxComponentEmpty.vue";
+import CardBoxModal from "@/Components/CardBoxModal.vue";
+import FloatingActionButton from "@/Components/FloatingActionButton.vue";
+import FloatingTextButton from "@/Components/FloatingTextButton.vue";
+import FormLoaderDark from '@/Loaders/form_loader_dark.gif'
+import FormLoaderLight from '@/Loaders/form_loader_light.gif'
+
+import { useMainStore } from "@/Stores/main";
+import { useForm, usePage, Head, Link, router } from '@inertiajs/vue3'
+//import { Inertia } from '@inertiajs/inertia'
+import { computed, ref, reactive, watch } from 'vue'
+import axios from "axios";
+import _ from 'lodash';
+
+const page = usePage();
+const props = defineProps({
+  user: {
+    type: Object
+  },
+  discos: {
+    type: Array
+  },
+  sms_charge: {
+    type: Number,
+    default: 5
+  }
+});
+
+const mainStore = useMainStore();
+
+const btn_hovered = ref(false);
+
+const meterTypeOptions = ref({
+  prepaid: 'prepaid',
+  postpaid: 'postpaid',
+
+});
+
+
+const show_other_overlay = ref(false);
+
+// const discos = ref([
+//   {
+//     name: "Ikeja Electric",
+//     type: 'ikeja',
+//     image: 'ikeja_logo.png',
+//   },
+//   {
+//     name: "Eko Electric",
+//     type: 'eko',
+//     image: 'eko_logo.jpg',
+//   },
+//   {
+//     name: "Abuja Electric",
+//     type: 'abuja',
+//     image: 'abuja_logo.jpg',
+//   },
+//   {
+//     name: "Kano Electric",
+//     type: 'kano',
+//     image: 'kano_logo.png',
+//   },
+//   {
+//     name: "Jos Electric",
+//     type: 'jos',
+//     image: 'jos_logo.png',
+//   },
+//   {
+//     name: "Ibadan Electric",
+//     type: 'ibadan',
+//     image: 'ibadan_logo.png',
+//   },
+//   {
+//     name: "ENUGU Electric",
+//     type: 'enugu',
+//     image: 'enugu_logo.jpg',
+//   },
+//   {
+//     name: "Port Harcourt Electric",
+//     type: 'phc',
+//     image: 'PHEDC.jpg',
+//   },
+//   {
+//     name: "Kaduna Electric",
+//     type: 'kaduna',
+//     image: 'kaduna-electric.jpg',
+//   },
+// ]);
+
+
+
+
+
+// console.log(data_plans.value)
+
+const showPreviewTransactionModal = ref(false);
+
+// const hasTermsAndPrivacyPolicyFeature = computed(() => page.props.jetstream?.hasTermsAndPrivacyPolicyFeature)
+
+
+
+const useSearchBtn = mainStore.useSearchBtn;
+
+
+const lengthOptions = ref([
+  10,
+  20,
+  50,
+  100
+]);
+
+
+
+const buy_electricity_request = useForm({
+  selected_disco_index: null,
+  disco: null,
+  meter_type: meterTypeOptions.value.prepaid,
+  meter_number: null,
+  amount: "",
+  mobile_number: "",
+  email: "",
+  sms_check: false,
+  customer_name: '',
+  productCode: "",
+  productToken: "",
+  use_payscribe: false,
+  payable: null,
+  discount: null,
+  service: "",
+
+});
+const check_disco_availability_request = useForm({
+  disco: "",
+
+});
+
+const submit = () => {
+
+};
+
+const proceedWithGsubz = () => {
+
+var selected_disco_index = buy_electricity_request.selected_disco_index;
+var disco = buy_electricity_request.disco;
+var meter_type = buy_electricity_request.meter_type;
+var meter_number = buy_electricity_request.meter_number;
+var amount = buy_electricity_request.amount;
+var mobile_number = buy_electricity_request.mobile_number;
+
+var email = buy_electricity_request.email;
+var sms_check = buy_electricity_request.sms_check;
+var customer_name = buy_electricity_request.customer_name;
+var productCode = buy_electricity_request.productCode;
+var productToken = buy_electricity_request.productToken;
+var use_payscribe = buy_electricity_request.use_payscribe;
+
+
+console.log(selected_disco_index)
+console.log(disco)
+console.log(meter_type)
+console.log(meter_number)
+console.log(amount)
+console.log(mobile_number)
+
+console.log(email)
+console.log(sms_check)
+console.log(customer_name)
+console.log(productCode)
+console.log(productToken)
+console.log(use_payscribe)
+
+if(!buy_electricity_request.processing){
+
+  buy_electricity_request.post(route('purchase_electricity_with_gsubz'), {
+    preserveScroll: true,
+    onSuccess: (page) => {
+
+      var response = page.props.flash.data;
+      console.log(response)
+
+      if (response.success && response.order_id !== "") {
+        var order_id = response.order_id;
+        var transaction_pending = response.transaction_pending;
+        var amount_debited = response.amount_debited;
+
+        var text = "You Have Successfully Credited Your " + meter_type + " <em class='text-primary'>" + props.discos[selected_disco_index].name + "</em> With Meter Number: <em class='text-primary'>" + meter_number + "</em> Account With <em class='text-primary'>₦" + mainStore.addCommas(amount) + "</em>. You have been debited <em class='text-primary'>₦" + mainStore.addCommas(amount_debited) + "</em>";
+
+
+        if(meter_type == "prepaid"){
+          if(response.metertoken != ""){
+            var metertoken = response.metertoken;
+            text += " Your Meter Token Is: <em class='text-primary'>"+metertoken+"</em>";
+
+
+            // if(response.parcels != ""){
+            //   text += "<div class='col-12 my-2'>";
+            //   for (var i = 0; i < response.parcels.length; i++) {
+            //     text += '<h4 class="col-5">'+response.parcels[i].type+'</h4>';
+
+            //     text += '<h4 class="col-6 text-primary italic">'+response.parcels[i].content+'</h4>';
+
+            //   }
+            //   text += "</div>";
+            // }
+          }else{
+            text += " Your Meter Token Will be Sent To Your Email And Notification Panel Soon.";
+          }
+        }
+
+
+        Swal.fire({
+          title: 'Info',
+          html: text,
+          icon: 'info',
+          confirmButtonColor: '#3085d6',
+          allowEscapeKey: false,
+          allowOutsideClick: false,
+        }).then((result) => {
+          router.visit(route('electricity_topup'));
+
+        });
+      }else if(response.error_msg != ""){
+        Swal.fire({
+          title: 'Ooops!',
+          html: `This transaction could not be completed. See details below. <br> <em class='text-emerald-500'>${response.error_msg}</em>`,
+          icon: 'error'
+        });
+      } else if (response.invalid_meterno) {
+
+        Swal.fire({
+          title: 'Ooops!',
+          html: "An invalid Meter number was entered. Your Money Has Been Refunded",
+          icon: 'error'
+        });
+      } else if (response.meter_type_not_available) {
+
+        Swal.fire({
+          title: 'Ooops!',
+          html: "Selected MeterType is not currently available. Your Money Has Been Refunded",
+          icon: 'error'
+        });
+      } else if (response.insuffecient_funds) {
+
+        Swal.fire({
+          title: 'Ooops!',
+          html: "Sorry You Do Not Have Suffecient Funds To Complete This Transaction.",
+          icon: 'error'
+        });
+      } else {
+        Swal.fire({
+          title: 'Error',
+          html: "Something Went Wrong. Please Try Again",
+          icon: 'error'
+        });
+      }
+
+    }, onError: (errors) => {
+      var size = Object.keys(errors).length;
+      Swal.fire({
+        icon: 'error',
+        title: 'Oops...',
+        text: `There are ${size} form errors. Please fix them`,
+      })
+    },
+  });
+
+}
+};
+
+const proceedWithBuyPower = () => {
+
+  var selected_disco_index = buy_electricity_request.selected_disco_index;
+  var disco = buy_electricity_request.disco;
+  var meter_type = buy_electricity_request.meter_type;
+  var meter_number = buy_electricity_request.meter_number;
+  var amount = buy_electricity_request.amount;
+  var mobile_number = buy_electricity_request.mobile_number;
+
+  var email = buy_electricity_request.email;
+  var sms_check = buy_electricity_request.sms_check;
+  var customer_name = buy_electricity_request.customer_name;
+  var productCode = buy_electricity_request.productCode;
+  var productToken = buy_electricity_request.productToken;
+  var use_payscribe = buy_electricity_request.use_payscribe;
+
+
+  console.log(selected_disco_index)
+  console.log(disco)
+  console.log(meter_type)
+  console.log(meter_number)
+  console.log(amount)
+  console.log(mobile_number)
+
+  console.log(email)
+  console.log(sms_check)
+  console.log(customer_name)
+  console.log(productCode)
+  console.log(productToken)
+  console.log(use_payscribe)
+
+  if(!buy_electricity_request.processing){
+
+    buy_electricity_request.post(route('purchase_electricity_with_buypower'), {
+      preserveScroll: true,
+      onSuccess: (page) => {
+
+        var response = page.props.flash.data;
+        console.log(response)
+
+        if (response.success && response.order_id !== "") {
+          var order_id = response.order_id;
+          var transaction_pending = response.transaction_pending;
+          var amount_debited = response.amount_debited;
+
+          var text = "You Have Successfully Credited Your " + meter_type + " <em class='text-primary'>" + props.discos[selected_disco_index].name + "</em> With Meter Number: <em class='text-primary'>" + meter_number + "</em> Account With <em class='text-primary'>₦" + mainStore.addCommas(amount) + "</em>. You have been debited <em class='text-primary'>₦" + mainStore.addCommas(amount_debited) + "</em>";
+          if (transaction_pending) {
+
+
+            if (meter_type == "prepaid") {
+              text += " <em class='text-emerald-500'>Note: This Order Is Currently Pending. You Have Been Debited. To See The Status Of Your Transaction And Your Meter Token, Track This Transaction From The Recharge Vtu Transaction History Page </em>";
+            } else {
+              text += " <em class='text-emerald-500'>Note: This Order Is Currently Pending. You Have Been Debited. To See The Status Of Your Transaction, Track This Transaction From The Recharge Vtu Transaction History Page </em>";
+            }
+
+          } else {
+
+            if(meter_type == "prepaid"){
+              if(response.metertoken != ""){
+                var metertoken = response.metertoken;
+                text += " Your Meter Token Is: <em class='text-primary'>"+metertoken+"</em>";
+
+
+                if(response.parcels != ""){
+                  text += "<div class='col-12 my-2'>";
+                  for (var i = 0; i < response.parcels.length; i++) {
+                    text += '<h4 class="col-5">'+response.parcels[i].type+'</h4>';
+
+                    text += '<h4 class="col-6 text-primary italic">'+response.parcels[i].content+'</h4>';
+
+                  }
+                  text += "</div>";
+                }
+              }else{
+                text += " Your Meter Token Will be Sent To Your Email And Notification Panel Soon.";
+              }
+            }
+          }
+
+          Swal.fire({
+            title: 'Info',
+            html: text,
+            icon: 'info',
+            confirmButtonColor: '#3085d6',
+            allowEscapeKey: false,
+            allowOutsideClick: false,
+          }).then((result) => {
+            router.visit(route('electricity_topup'));
+
+          });
+        }else if(response.error_msg != ""){
+          Swal.fire({
+            title: 'Ooops!',
+            html: `This transaction culd not be completed. See details below. <br> <em class='text-emerald-500'>${response.error_msg}</em>`,
+            icon: 'error'
+          });
+        } else if (response.invalid_meterno) {
+
+          Swal.fire({
+            title: 'Ooops!',
+            html: "An invalid Meter number was entered. Your Money Has Been Refunded",
+            icon: 'error'
+          });
+        } else if (response.meter_type_not_available) {
+
+          Swal.fire({
+            title: 'Ooops!',
+            html: "Selected MeterType is not currently available. Your Money Has Been Refunded",
+            icon: 'error'
+          });
+        } else if (response.insuffecient_funds) {
+
+          Swal.fire({
+            title: 'Ooops!',
+            html: "Sorry You Do Not Have Suffecient Funds To Complete This Transaction.",
+            icon: 'error'
+          });
+        } else {
+          Swal.fire({
+            title: 'Error',
+            html: "Something Went Wrong. Please Try Again",
+            icon: 'error'
+          });
+        }
+
+      }, onError: (errors) => {
+        var size = Object.keys(errors).length;
+        Swal.fire({
+          icon: 'error',
+          title: 'Oops...',
+          text: `There are ${size} form errors. Please fix them`,
+        })
+      },
+    });
+
+  }
+};
+
+const proceedWithPayscribe = () => {
+
+  var selected_disco_index = buy_electricity_request.selected_disco_index;
+  var disco = buy_electricity_request.disco;
+  var meter_type = buy_electricity_request.meter_type;
+  var meter_number = buy_electricity_request.meter_number;
+  var amount = buy_electricity_request.amount;
+  var mobile_number = buy_electricity_request.mobile_number;
+
+  var email = buy_electricity_request.email;
+  var sms_check = buy_electricity_request.sms_check;
+  var customer_name = buy_electricity_request.customer_name;
+  var productCode = buy_electricity_request.productCode;
+  var productToken = buy_electricity_request.productToken;
+  var use_payscribe = buy_electricity_request.use_payscribe;
+
+
+  console.log(selected_disco_index)
+  console.log(disco)
+  console.log(meter_type)
+  console.log(meter_number)
+  console.log(amount)
+  console.log(mobile_number)
+
+  console.log(email)
+  console.log(sms_check)
+  console.log(customer_name)
+  console.log(productCode)
+  console.log(productToken)
+  console.log(use_payscribe)
+
+  if(!buy_electricity_request.processing){
+    buy_electricity_request.post(route('purchase_electricity_with_payscribe'), {
+      preserveScroll: true,
+      onSuccess: (page) => {
+
+        var response = page.props.flash.data;
+        console.log(response)
+
+        if (response.success && response.order_id !== "") {
+          var order_id = response.order_id;
+          var transaction_pending = response.transaction_pending;
+          var amount_debited = response.amount_debited;
+
+
+
+          var text = "You Have Successfully Credited Your " + meter_type + " <em class='text-primary'>" + props.discos[selected_disco_index].name + "</em> With Meter Number: <em class='text-primary'>" + meter_number + "</em> Account With ₦" + mainStore.addCommas(amount) + ". You have been debited <em class='text-primary'>₦" + mainStore.addCommas(amount_debited) + "</em>";
+          if (transaction_pending) {
+
+
+            if (meter_type == "prepaid") {
+              text += " Note: This Order Is Currently Pending. You Have Been Debited. To See The Status Of Your Transaction And Your Meter Token, Track This Transaction From The Recharge Vtu Transaction History Page";
+            } else {
+              text += " Note: This Order Is Currently Pending. You Have Been Debited. To See The Status Of Your Transaction, Track This Transaction From The Recharge Vtu Transaction History Page";
+            }
+
+          } else {
+
+            if (meter_type == "prepaid") {
+              if (response.metertoken != "") {
+                var metertoken = response.metertoken;
+                text += " Your Meter Token Is: <em class='text-primary'>" + metertoken + "</em>";
+              } else {
+                text += " Your Meter Token Will be Sent To Your Email And Notification Panel Soon.";
+              }
+            }
+          }
+
+          Swal.fire({
+            title: 'Info',
+            html: text,
+            icon: 'info',
+            confirmButtonColor: '#3085d6',
+            allowEscapeKey: false,
+            allowOutsideClick: false,
+          }).then((result) => {
+            router.visit(route('electricity_topup'));
+
+          });
+        } else if (response.invalid_meterno) {
+
+          Swal.fire({
+            title: 'Ooops!',
+            html: "An invalid Meter number was entered. Your Money Has Been Refunded",
+            icon: 'error'
+          });
+        } else if (response.meter_type_not_available) {
+
+          Swal.fire({
+            title: 'Ooops!',
+            html: "Selected MeterType is not currently available. Your Money Has Been Refunded",
+            icon: 'error'
+          });
+        } else if (response.insuffecient_funds) {
+
+          Swal.fire({
+            title: 'Ooops!',
+            html: "Sorry You Do Not Have Suffecient Funds To Complete This Transaction.",
+            icon: 'error'
+          });
+        } else {
+          Swal.fire({
+            title: 'Error',
+            html: "Something Went Wrong. Please Try Again",
+            icon: 'error'
+          });
+        }
+
+      }, onError: (errors) => {
+        var size = Object.keys(errors).length;
+        Swal.fire({
+          icon: 'error',
+          title: 'Oops...',
+          text: `There are ${size} form errors. Please fix them`,
+        })
+      },
+    });
+
+
+}
+}
+
+const confirmAndProceedWithTransaction = () => {
+
+  var selected_disco_index = buy_electricity_request.selected_disco_index;
+  var disco = buy_electricity_request.disco;
+  var meter_type = buy_electricity_request.meter_type;
+  var meter_number = buy_electricity_request.meter_number;
+  var amount = buy_electricity_request.amount;
+  var mobile_number = buy_electricity_request.mobile_number;
+
+  var email = buy_electricity_request.email;
+  var sms_check = buy_electricity_request.sms_check;
+  var customer_name = buy_electricity_request.customer_name;
+  var productCode = buy_electricity_request.productCode;
+  var productToken = buy_electricity_request.productToken;
+  var use_payscribe = buy_electricity_request.use_payscribe;
+  var service = buy_electricity_request.service;
+
+
+  console.log(selected_disco_index)
+  console.log(disco)
+  console.log(meter_type)
+  console.log(meter_number)
+  console.log(amount)
+  console.log(mobile_number)
+
+  console.log(email)
+  console.log(sms_check)
+  console.log(customer_name)
+  console.log(productCode)
+  console.log(productToken)
+  console.log(use_payscribe)
+
+  if (disco != null) {
+
+    showPreviewTransactionModal.value = true;
+    // if(disco == "eko"){
+    //   self.proceedWithGsubz();
+    // }else{
+    // if (use_payscribe) {
+    //   proceedWithPayscribe();
+    // } else {
+    //   proceedWithBuyPower();
+    // }
+    // }
+
+    if(service == "payscribe"){
+      proceedWithPayscribe();
+    }else if(service == "buypower"){
+      proceedWithBuyPower();
+    }else if(service == "gsubz"){
+      proceedWithGsubz();
+    }
+
+  } else {
+    Swal.fire({
+      title: 'Error!',
+      html: "No Disco Was Selected. Please Select A Disco To Proceed.",
+      icon: 'error'
+    });
+  }
+};
+
+const verifyMeterDetails = () => {
+
+  var selected_disco_index = buy_electricity_request.selected_disco_index;
+  var disco = buy_electricity_request.disco;
+  var meter_type = buy_electricity_request.meter_type;
+  var meter_number = buy_electricity_request.meter_number;
+  var amount = buy_electricity_request.amount;
+  var mobile_number = buy_electricity_request.mobile_number;
+
+  var email = buy_electricity_request.email;
+  var sms_check = buy_electricity_request.sms_check;
+  var customer_name = buy_electricity_request.customer_name;
+  var productCode = buy_electricity_request.productCode;
+  var productToken = buy_electricity_request.productToken;
+  var use_payscribe = buy_electricity_request.use_payscribe;
+
+
+  console.log(selected_disco_index)
+  console.log(disco)
+  console.log(meter_type)
+  console.log(meter_number)
+  console.log(amount)
+  console.log(mobile_number)
+
+  console.log(email)
+  console.log(sms_check)
+  console.log(customer_name)
+  console.log(productCode)
+  console.log(productToken)
+  console.log(use_payscribe)
+
+  if (disco != null) {
+
+
+    buy_electricity_request.post(route('validate_meter_number_disco'), {
+      preserveScroll: true,
+      onSuccess: (page) => {
+
+        var response = page.props.flash.data;
+        console.log(response)
+
+        if (response.success && response.customer_name !== "" && response.service != "") {
+          var proceed = false;
+          buy_electricity_request.customer_name = response.customer_name;
+          buy_electricity_request.use_payscribe = response.use_payscribe;
+          buy_electricity_request.productCode = response.productCode;
+          buy_electricity_request.service = response.service;
+          // buy_electricity_request.productToken = response.productToken;
+
+          Swal.fire({
+            title: 'Info',
+            icon: 'info',
+            html: `Is This Your Name ? <br> <em class='text-center text-primary'>${buy_electricity_request.customer_name}</em>`,
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes Proceed!',
+            cancelButtonText: "No"
+          }).then((result) => {
+            /* Read more about isConfirmed, isDenied below */
+            if (result.isConfirmed) {
+              // if (buy_electricity_request.sms_check) {
+              //   buy_electricity_request.payable = Number(amount) + 5;
+              // } else {
+              //   buy_electricity_request.payable = amount;
+              // }
+
+
+              showPreviewTransactionModal.value = true;
+            }
+          });
+
+        } else if (response.invalid_user) {
+
+          Swal.fire({
+            title: 'Error!',
+            html: "The Details Entered Were Invalid. Please Try Again.",
+            icon: 'error'
+          });
+        } else if (!response.can_vend) {
+
+          var t = `This transaction is unable to vend.`;
+          if (response.cant_vend_reasons != ""){
+            t += "<br> " + response.cant_vend_reasons
+          }
+          Swal.fire({
+            title: 'Error!',
+            html: t,
+            icon: 'error'
+          });
+        }else {
+          Swal.fire({
+            title: 'Error',
+            html: "Something Went Wrong. Please Try Again",
+            icon: 'error'
+          });
+        }
+
+      }, onError: (errors) => {
+        var size = Object.keys(errors).length;
+        Swal.fire({
+          icon: 'error',
+          title: 'Oops...',
+          text: `There are ${size} form errors. Please fix them`,
+        })
+      },
+    });
+
+
+  } else {
+
+    Swal.fire({
+      title: 'Error!',
+      html: "No Disco Was Selected. Please Select A Disco To Proceed.",
+      icon: 'error'
+    });
+  }
+};
+
+const selectedDisco = (index, discount) => {
+
+  if (buy_electricity_request.selected_disco_index != index) {
+    check_disco_availability_request.disco = props.discos[index].name;
+
+    check_disco_availability_request.post(route('check_if_disco_is_available'), {
+      preserveScroll: true,
+      onSuccess: (page) => {
+
+        var response = page.props.flash.data;
+        console.log(response)
+
+        if (response.success) {
+          buy_electricity_request.selected_disco_index = index;
+          buy_electricity_request.disco = props.discos[index].name;
+          buy_electricity_request.discount = discount;
+        } else {
+          Swal.fire({
+            title: 'Error',
+            html: "<em class='text-primary'>" + props.discos[index].name + "</em> Disco Is Not Available At The Moment",
+            icon: 'error'
+          });
+        }
+
+      }, onError: (errors) => {
+        var size = Object.keys(errors).length;
+        Swal.fire({
+          icon: 'error',
+          title: 'Oops...',
+          text: `There are ${size} form errors. Please fix them`,
+        })
+      },
+    });
+
+
+  }
+
+
+};
+
+const outputDiscoRowClasses = (index) => {
+
+  var str = "";
+  if (buy_electricity_request.selected_disco_index == index) {
+    str += 'col-span-3 sm:col-span-1 col-3 col-sm-1 card disco-card selected';
+  } else {
+    str += 'col-span-3 sm:col-span-1 col-3 col-sm-1 card disco-card';
+  }
+
+  if (index != 0) {
+    str += ' offset-1';
+  }
+  return str;
+}
+
+
+const calculatePayableAmount = computed(() => {
+  var amount = buy_electricity_request.amount;
+  amount += buy_electricity_request.sms_check ? props.sms_charge : 0;
+
+  amount = amount - ((buy_electricity_request.discount / 100) * amount);
+
+  return parseFloat(amount).toFixed(2);
+});
+</script>
+
+
+
 <template inheritAttrs="false">
   <LayoutAuthenticated>
 
@@ -62,21 +871,41 @@
       <CardBox isForm @submit.prevent="verifyMeterDetails" class="">
 
         <h4 class="subhead">Select Disco</h4>
-        
+
         <div class="mx-2 my-9">
           <div class="grid grid-cols-12 gap-3">
-        
-            <div v-for="(disco,index) in discos" :key="index" :class="outputDiscoRowClasses(index)"
+
+            <!-- <div v-for="(disco,index) in discos" :key="index" :class="outputDiscoRowClasses(index)"
               @click="selectedDisco(index)">
               <div class="card-body text-center">
                 <img :src="'/images/'+ disco.image" :alt="disco.name" class="col-12">
                 <span v-html="disco.name"></span>
               </div>
-        
-            </div>
-        
-        
-        
+
+            </div> -->
+
+            <template v-for="(disco, index) in discos" :key="index">
+              <div :class="outputDiscoRowClasses(index)"
+                @click="selectedDisco(index, disco.discount)"
+                class="col-span-2 sm:col-span-1 card operator-card">
+                <div class="card-body text-center">
+                  <div v-if="disco.discount > 0"
+                    class="bg-primary rounded-lg mb-2 text-xs px-1 py-1 font-semibold text-white">{{ disco.discount
+                    }}% discount</div>
+                  <img :src="disco.image" :alt="disco.name" class="">
+                  <span v-html="disco.name + ' Electric'"></span>
+                  <!-- <p>MTN</p> -->
+                </div>
+
+              </div>
+
+              <div class="col-span-1">
+
+              </div>
+
+            </template>
+
+
           </div>
           <div class="row">
             <div v-if="buy_electricity_request.errors.disco" class="form-error">{{ buy_electricity_request.errors.disco }}</div>
@@ -84,9 +913,9 @@
         </div>
 
         <h4 class="subhead my-5">Meter Type</h4>
-        
+
         <FormField class="" label="">
-          
+
           <FormCheckRadioGroup v-model="buy_electricity_request.meter_type" :errors="buy_electricity_request.errors.meter_type" name="meter_type" :options="meterTypeOptions" type="radio" />
         </FormField>
 
@@ -98,36 +927,36 @@
         </FormField>
 
         <h4 class="subhead my-5">Amount</h4>
-        
+
         <FormField class="" label="">
           <FormControl v-model="buy_electricity_request.amount" :error="buy_electricity_request.errors.amount"
             type="number" :icon="mdiCurrencyNgn" id="amount" placeholder="In Naira(₦)" />
         </FormField>
 
         <h4 class="subhead my-5">Mobile Number</h4>
-        
+
         <FormField class="" label="">
           <FormControl v-model="buy_electricity_request.mobile_number" :error="buy_electricity_request.errors.mobile_number"
             type="text" :icon="mdiPhone" id="mobile_number" placeholder="e.g 08127027321" />
         </FormField>
 
         <h4 class="subhead my-5">Email Address</h4>
-        
+
         <FormField class="" label="">
           <FormControl v-model="buy_electricity_request.email" :error="buy_electricity_request.errors.email"
             type="email" :icon="mdiGmail" id="email" placeholder="e.g ikechukwunwogo@gmail.com" />
         </FormField>
 
         <div id="sms-check-div" class="mt-[15px] col-span-6">
-        
+
           <input type="checkbox" class="login-checkbox" id="sms-check"
             v-model="buy_electricity_request.sms_check" />
           <label for="sms-check" class="login-checkbox-label ">Send Token As SMS?</label>
         </div>
 
-        
 
-        <p class="text-sm my-4 font-semibold"><em class="text-primary">Note: SMS Cost ₦5.00</em></p>
+
+        <p class="text-sm my-4 font-semibold"><em class="text-primary">Note: SMS Cost ₦{{ sms_charge }}</em></p>
 
 
         <button :class="buy_electricity_request.processing ? 'opacity-80 cursor-not-allowed' : ''"
@@ -178,11 +1007,21 @@
                   <td>EMAIL</td>
                   <td><em v-html="buy_electricity_request.email" class="text-primary"></em></td>
                 </tr>
-                
-                
+
+                <tr>
+                  <td>SMS TOKEN</td>
+                  <td><em v-html="buy_electricity_request.sms_check ? 'YES' : 'NO'" class="text-primary"></em></td>
+                </tr>
+
+                <tr>
+                  <td>DISCOUNT</td>
+                  <td><em v-html="`${buy_electricity_request.discount}%`" class="text-primary"></em></td>
+
+                </tr>
+
                 <tr>
                   <td>PAYABLE</td>
-                  <td><em v-html="'₦ ' + mainStore.addCommas(buy_electricity_request.payable)" class="text-primary"></em></td>
+                  <td><em v-html="'₦ ' + mainStore.addCommas(calculatePayableAmount)" class="text-primary"></em></td>
                 </tr>
               </tbody>
             </table>
@@ -200,630 +1039,5 @@
     </SectionMain>
 
   </LayoutAuthenticated>
-  
+
 </template>
-<script setup>
-import {
-  mdiMonitorCellphone,
-  mdiTableBorder,
-  mdiTableOff,
-  mdiGithub,
-  mdiHospitalBuilding,
-  mdiClose,
-  mdiCellphoneDock,
-  mdiAccountCog,
-  mdiAccountCash,
-  mdiCurrencyNgn,
-  mdiPhone,
-  mdiGmail,
-  mdiLightningBoltOutline,
-  mdiHistory,
-} from "@mdi/js";
-
-import FormCheckRadioGroup from "@/Components/FormCheckRadioGroup.vue";
-import FormField from "@/Components/FormField.vue";
-import FormControl from "@/Components/FormControl.vue";
-import SectionMain from "@/Components/SectionMain.vue";
-import NotificationBar from "@/Components/NotificationBar.vue";
-import CardBox from "@/Components/CardBox.vue";
-import LayoutAuthenticated from "@/Layouts/LayoutAuthenticated.vue";
-import SectionTitleLineWithButton from "@/Components/SectionTitleLineWithButton.vue";
-import BaseDivider from "@/Components/BaseDivider.vue";
-import BaseButton from "@/Components/BaseButton.vue";
-import BaseButtons from "@/Components/BaseButtons.vue";
-import BaseLevel from "@/Components/BaseLevel.vue";
-import CardBoxComponentEmpty from "@/Components/CardBoxComponentEmpty.vue";
-import CardBoxModal from "@/Components/CardBoxModal.vue";
-import FloatingActionButton from "@/Components/FloatingActionButton.vue";
-import FloatingTextButton from "@/Components/FloatingTextButton.vue";
-import FormLoaderDark from '@/Loaders/form_loader_dark.gif'
-import FormLoaderLight from '@/Loaders/form_loader_light.gif'
-
-import { useMainStore } from "@/Stores/main";
-import { useForm, usePage, Head, Link, router } from '@inertiajs/vue3'
-//import { Inertia } from '@inertiajs/inertia'
-import { computed, ref, reactive, watch } from 'vue'
-import axios from "axios";
-import _ from 'lodash';
-
-const page = usePage();
-const props = page.props;
-const user = props.user;
-const test_plans = props.test_plans;
-const mainStore = useMainStore();
-
-const btn_hovered = ref(false);
-
-const meterTypeOptions = ref({
-  prepaid: 'prepaid',
-  postpaid: 'postpaid',
-
-});
-
-
-const show_other_overlay = ref(false);
-
-const discos = ref([
-  {
-    name: "Ikeja Electric",
-    type: 'ikeja',
-    image: 'ikeja_logo.png',
-  },
-  {
-    name: "Eko Electric",
-    type: 'eko',
-    image: 'eko_logo.jpg',
-  },
-  {
-    name: "Abuja Electric",
-    type: 'abuja',
-    image: 'abuja_logo.jpg',
-  },
-  {
-    name: "Kano Electric",
-    type: 'kano',
-    image: 'kano_logo.png',
-  },
-  {
-    name: "Jos Electric",
-    type: 'jos',
-    image: 'jos_logo.png',
-  },
-  {
-    name: "Ibadan Electric",
-    type: 'ibadan',
-    image: 'ibadan_logo.png',
-  },
-  {
-    name: "ENUGU Electric",
-    type: 'enugu',
-    image: 'enugu_logo.jpg',
-  },
-  {
-    name: "Port Harcourt Electric",
-    type: 'phc',
-    image: 'PHEDC.jpg',
-  },
-  {
-    name: "Kaduna Electric",
-    type: 'kaduna',
-    image: 'kaduna-electric.jpg',
-  },
-]);
-
-
-
-    
-     
-// console.log(data_plans.value)
-
-const showPreviewTransactionModal = ref(false);
-
-// const hasTermsAndPrivacyPolicyFeature = computed(() => page.props.jetstream?.hasTermsAndPrivacyPolicyFeature)
-
-
-
-const useSearchBtn = mainStore.useSearchBtn;
-
-
-const lengthOptions = ref([
-  10,
-  20,
-  50,
-  100
-]);
-
-
-
-const buy_electricity_request = useForm({
-  selected_disco_index: null,
-  disco: null,
-  meter_type: meterTypeOptions.value.prepaid,
-  meter_number: null,
-  amount: "",
-  mobile_number: "",
-  email: "",
-  sms_check: false,
-  customer_name: '',
-  productCode: "",
-  productToken: "",
-  use_payscribe: false,
-  payable: null,
-
-});
-const check_disco_availability_request = useForm({
-  disco: "",
-
-});
-
-const submit = () => {
-
-};
-
-const proceedWithBuyPower = () => {
-  
-  var selected_disco_index = buy_electricity_request.selected_disco_index;
-  var disco = buy_electricity_request.disco;
-  var meter_type = buy_electricity_request.meter_type;
-  var meter_number = buy_electricity_request.meter_number;
-  var amount = buy_electricity_request.amount;
-  var mobile_number = buy_electricity_request.mobile_number;
-
-  var email = buy_electricity_request.email;
-  var sms_check = buy_electricity_request.sms_check;
-  var customer_name = buy_electricity_request.customer_name;
-  var productCode = buy_electricity_request.productCode;
-  var productToken = buy_electricity_request.productToken;
-  var use_payscribe = buy_electricity_request.use_payscribe;
-
-
-  console.log(selected_disco_index)
-  console.log(disco)
-  console.log(meter_type)
-  console.log(meter_number)
-  console.log(amount)
-  console.log(mobile_number)
-
-  console.log(email)
-  console.log(sms_check)
-  console.log(customer_name)
-  console.log(productCode)
-  console.log(productToken)
-  console.log(use_payscribe)
-
-   
-  buy_electricity_request.post(route('purchase_electricity_with_buypower'), {
-    preserveScroll: true,
-    onSuccess: (page) => {
-
-      var response = page.props.flash.data;
-      console.log(response)
-
-      if (response.success && response.order_id !== "") {
-        var order_id = response.order_id;
-        var transaction_pending = response.transaction_pending;
-
-        var text = "You Have Successfully Credited Your " + meter_type + " <em class='text-primary'>" + discos.value[selected_disco_index].name + "</em> With Meter Number: <em class='text-primary'>" + meter_number + "</em> Account With ₦" + mainStore.addCommas(amount) + ".";
-        if (transaction_pending) {
-
-
-          if (meter_type == "prepaid") {
-            text += " <em class='text-emerald-500'>Note: This Order Is Currently Pending. You Have Been Debited. To See The Status Of Your Transaction And Your Meter Token, Track This Transaction From The Recharge Vtu Transaction History Page </em>";
-          } else {
-            text += " <em class='text-emerald-500'>Note: This Order Is Currently Pending. You Have Been Debited. To See The Status Of Your Transaction, Track This Transaction From The Recharge Vtu Transaction History Page </em>";
-          }
-
-        } else {
-
-          if (meter_type == "prepaid") {
-            if (response.metertoken != "") {
-              var metertoken = response.metertoken;
-              text += " Your Meter Token Is: <em class='text-primary'>" + metertoken + "</em>";
-            } else {
-              text += " Your Meter Token Will be Sent To Your Email And Notification Panel Soon.";
-            }
-          }
-        }
-
-        Swal.fire({
-          title: 'Info',
-          html: text,
-          icon: 'info',
-          confirmButtonColor: '#3085d6',
-          allowEscapeKey: false,
-          allowOutsideClick: false,
-        }).then((result) => {
-          router.visit(route('electricity_topup'));
-
-        });
-      }else if(response.error_msg != ""){
-        Swal.fire({
-          title: 'Ooops!',
-          html: `This transaction culd not be completed. See details below. <br> <em class='text-emerald-500'>${response.error_msg}</em>`,
-          icon: 'error'
-        });
-      } else if (response.invalid_meterno) {
-
-        Swal.fire({
-          title: 'Ooops!',
-          html: "An invalid Meter number was entered. Your Money Has Been Refunded",
-          icon: 'error'
-        });
-      } else if (response.meter_type_not_available) {
-
-        Swal.fire({
-          title: 'Ooops!',
-          html: "Selected MeterType is not currently available. Your Money Has Been Refunded",
-          icon: 'error'
-        });
-      } else if (response.insuffecient_funds) {
-
-        Swal.fire({
-          title: 'Ooops!',
-          html: "Sorry You Do Not Have Suffecient Funds To Complete This Transaction.",
-          icon: 'error'
-        });
-      } else {
-        Swal.fire({
-          title: 'Error',
-          html: "Something Went Wrong. Please Try Again",
-          icon: 'error'
-        });
-      }
-
-    }, onError: (errors) => {
-      var size = Object.keys(errors).length;
-      Swal.fire({
-        icon: 'error',
-        title: 'Oops...',
-        text: `There are ${size} form errors. Please fix them`,
-      })
-    },
-  });
-
-
-};
-
-const proceedWithPayscribe = () => {
-  
-  var selected_disco_index = buy_electricity_request.selected_disco_index;
-  var disco = buy_electricity_request.disco;
-  var meter_type = buy_electricity_request.meter_type;
-  var meter_number = buy_electricity_request.meter_number;
-  var amount = buy_electricity_request.amount;
-  var mobile_number = buy_electricity_request.mobile_number;
-
-  var email = buy_electricity_request.email;
-  var sms_check = buy_electricity_request.sms_check;
-  var customer_name = buy_electricity_request.customer_name;
-  var productCode = buy_electricity_request.productCode;
-  var productToken = buy_electricity_request.productToken;
-  var use_payscribe = buy_electricity_request.use_payscribe;
-
-
-  console.log(selected_disco_index)
-  console.log(disco)
-  console.log(meter_type)
-  console.log(meter_number)
-  console.log(amount)
-  console.log(mobile_number)
-
-  console.log(email)
-  console.log(sms_check)
-  console.log(customer_name)
-  console.log(productCode)
-  console.log(productToken)
-  console.log(use_payscribe)
-
-  buy_electricity_request.post(route('purchase_electricity_with_payscribe'), {
-    preserveScroll: true,
-    onSuccess: (page) => {
-
-      var response = page.props.flash.data;
-      console.log(response)
-
-      if (response.success && response.order_id !== "") {
-        var order_id = response.order_id;
-        var transaction_pending = response.transaction_pending;
-
-        var text = "You Have Successfully Credited Your " + meter_type + " <em class='text-primary'>" + discos.value[selected_disco_index].name + "</em> With Meter Number: <em class='text-primary'>" + meter_number + "</em> Account With ₦" + mainStore.addCommas(amount) + ".";
-        if (transaction_pending) {
-
-
-          if (meter_type == "prepaid") {
-            text += " Note: This Order Is Currently Pending. You Have Been Debited. To See The Status Of Your Transaction And Your Meter Token, Track This Transaction From The Recharge Vtu Transaction History Page";
-          } else {
-            text += " Note: This Order Is Currently Pending. You Have Been Debited. To See The Status Of Your Transaction, Track This Transaction From The Recharge Vtu Transaction History Page";
-          }
-
-        } else {
-
-          if (meter_type == "prepaid") {
-            if (response.metertoken != "") {
-              var metertoken = response.metertoken;
-              text += " Your Meter Token Is: <em class='text-primary'>" + metertoken + "</em>";
-            } else {
-              text += " Your Meter Token Will be Sent To Your Email And Notification Panel Soon.";
-            }
-          }
-        }
-
-        Swal.fire({
-          title: 'Info',
-          html: text,
-          icon: 'info',
-          confirmButtonColor: '#3085d6',
-          allowEscapeKey: false,
-          allowOutsideClick: false,
-        }).then((result) => {
-          router.visit(route('electricity_topup'));
-
-        });
-      } else if (response.invalid_meterno) {
-
-        Swal.fire({
-          title: 'Ooops!',
-          html: "An invalid Meter number was entered. Your Money Has Been Refunded",
-          icon: 'error'
-        });
-      } else if (response.meter_type_not_available) {
-
-        Swal.fire({
-          title: 'Ooops!',
-          html: "Selected MeterType is not currently available. Your Money Has Been Refunded",
-          icon: 'error'
-        });
-      } else if (response.insuffecient_funds) {
-
-        Swal.fire({
-          title: 'Ooops!',
-          html: "Sorry You Do Not Have Suffecient Funds To Complete This Transaction.",
-          icon: 'error'
-        });
-      } else {
-        Swal.fire({
-          title: 'Error',
-          html: "Something Went Wrong. Please Try Again",
-          icon: 'error'
-        });
-      }
-
-    }, onError: (errors) => {
-      var size = Object.keys(errors).length;
-      Swal.fire({
-        icon: 'error',
-        title: 'Oops...',
-        text: `There are ${size} form errors. Please fix them`,
-      })
-    },
-  });
-
-
-}
-
-const confirmAndProceedWithTransaction = () => {
-  
-  var selected_disco_index = buy_electricity_request.selected_disco_index;
-  var disco = buy_electricity_request.disco;
-  var meter_type = buy_electricity_request.meter_type;
-  var meter_number = buy_electricity_request.meter_number;
-  var amount = buy_electricity_request.amount;
-  var mobile_number = buy_electricity_request.mobile_number;
-
-  var email = buy_electricity_request.email;
-  var sms_check = buy_electricity_request.sms_check;
-  var customer_name = buy_electricity_request.customer_name;
-  var productCode = buy_electricity_request.productCode;
-  var productToken = buy_electricity_request.productToken;
-  var use_payscribe = buy_electricity_request.use_payscribe;
-
-
-  console.log(selected_disco_index)
-  console.log(disco)
-  console.log(meter_type)
-  console.log(meter_number)
-  console.log(amount)
-  console.log(mobile_number)
-
-  console.log(email)
-  console.log(sms_check)
-  console.log(customer_name)
-  console.log(productCode)
-  console.log(productToken)
-  console.log(use_payscribe)
-
-  if (disco != null) {
-
-    showPreviewTransactionModal.value = true;
-    // if(disco == "eko"){
-    //   self.proceedWithGsubz();
-    // }else{
-    if (use_payscribe) {
-      proceedWithPayscribe();
-    } else {
-      proceedWithBuyPower();
-    }
-    // }
-
-  } else {
-    Swal.fire({
-      title: 'Error!',
-      html: "No Disco Was Selected. Please Select A Disco To Proceed.",
-      icon: 'error'
-    });
-  }
-};
-
-const verifyMeterDetails = () => {
-  
-  var selected_disco_index = buy_electricity_request.selected_disco_index;
-  var disco = buy_electricity_request.disco;
-  var meter_type = buy_electricity_request.meter_type;
-  var meter_number = buy_electricity_request.meter_number;
-  var amount = buy_electricity_request.amount;
-  var mobile_number = buy_electricity_request.mobile_number;
-
-  var email = buy_electricity_request.email;
-  var sms_check = buy_electricity_request.sms_check;
-  var customer_name = buy_electricity_request.customer_name;
-  var productCode = buy_electricity_request.productCode;
-  var productToken = buy_electricity_request.productToken;
-  var use_payscribe = buy_electricity_request.use_payscribe;
-
-
-  console.log(selected_disco_index)
-  console.log(disco)
-  console.log(meter_type)
-  console.log(meter_number)
-  console.log(amount)
-  console.log(mobile_number)
-
-  console.log(email)
-  console.log(sms_check)
-  console.log(customer_name)
-  console.log(productCode)
-  console.log(productToken)
-  console.log(use_payscribe)
-
-  if (disco != null) {
-
-    
-    buy_electricity_request.post(route('validate_meter_number_disco'), {
-      preserveScroll: true,
-      onSuccess: (page) => {
-
-        var response = page.props.flash.data;
-        console.log(response)
-
-        if (response.success && response.customer_name !== "") {
-          var proceed = false;
-          buy_electricity_request.customer_name = response.customer_name;
-          buy_electricity_request.use_payscribe = response.use_payscribe;
-          buy_electricity_request.productCode = response.productCode;
-          // buy_electricity_request.productToken = response.productToken;
-          
-          Swal.fire({
-            title: 'Info',
-            icon: 'info',
-            html: `Is This Your Name ? <br> <em class='text-center text-primary'>${buy_electricity_request.customer_name}</em>`,
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Yes Proceed!',
-            cancelButtonText: "No"
-          }).then((result) => {
-            /* Read more about isConfirmed, isDenied below */
-            if (result.isConfirmed) {
-              if (buy_electricity_request.sms_check) {
-                buy_electricity_request.payable = Number(amount) + 5;
-              } else {
-                buy_electricity_request.payable = amount;
-              }
-              
-              showPreviewTransactionModal.value = true;
-            }
-          });
-          
-        } else if (response.invalid_user) {
-
-          Swal.fire({
-            title: 'Error!',
-            html: "The Details Entered Were Invalid. Please Try Again.",
-            icon: 'error'
-          });
-        } else if (!response.can_vend) {
-          
-          var t = `This transaction is unable to vend.`;
-          if (response.cant_vend_reasons != ""){
-            t += "<br> " + response.cant_vend_reasons
-          }
-          Swal.fire({
-            title: 'Error!',
-            html: t,
-            icon: 'error'
-          });
-        }else {
-          Swal.fire({
-            title: 'Error',
-            html: "Something Went Wrong. Please Try Again",
-            icon: 'error'
-          });
-        }
-
-      }, onError: (errors) => {
-        var size = Object.keys(errors).length;
-        Swal.fire({
-          icon: 'error',
-          title: 'Oops...',
-          text: `There are ${size} form errors. Please fix them`,
-        })
-      },
-    });
-
-
-  } else {
-    
-    Swal.fire({
-      title: 'Error!',
-      html: "No Disco Was Selected. Please Select A Disco To Proceed.",
-      icon: 'error'
-    });
-  }
-};
-
-const selectedDisco = (index) => {
-  
-  if (buy_electricity_request.selected_disco_index != index) {
-    check_disco_availability_request.disco = discos.value[index].type;
-    
-    check_disco_availability_request.post(route('check_if_disco_is_available'), {
-      preserveScroll: true,
-      onSuccess: (page) => {
-
-        var response = page.props.flash.data;
-        console.log(response)
-
-        if (response.success) {
-          buy_electricity_request.selected_disco_index = index;
-          buy_electricity_request.disco = discos.value[index].type;
-        } else {
-          Swal.fire({
-            title: 'Error',
-            html: "<em class='text-primary'>" + discos.value[index].name + "</em> Disco Is Not Available At The Moment",
-            icon: 'error'
-          });
-        }
-
-      }, onError: (errors) => {
-        var size = Object.keys(errors).length;
-        Swal.fire({
-          icon: 'error',
-          title: 'Oops...',
-          text: `There are ${size} form errors. Please fix them`,
-        })
-      },
-    });
-
-
-  }
-
-
-};
-
-const outputDiscoRowClasses = (index) => {
-  
-  var str = "";
-  if (buy_electricity_request.selected_disco_index == index) {
-    str += 'col-span-3 sm:col-span-1 col-3 col-sm-1 card disco-card selected';
-  } else {
-    str += 'col-span-3 sm:col-span-1 col-3 col-sm-1 card disco-card';
-  }
-
-  if (index != 0) {
-    str += ' offset-1';
-  }
-  return str;
-}
-
-</script>
-

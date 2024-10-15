@@ -62,7 +62,7 @@ const submit = () => {
 <template>
   <LayoutGuest class="font-nunito">
 
-    <Head title="Login to cosrosmos" />
+    <Head title="Login to KetexPay" />
 
     <SectionFullScreen v-slot="{ cardClass }" bg="" class="bg-gradient-to-r from-gray-200 to-gray-300">
 
@@ -77,7 +77,7 @@ const submit = () => {
                 <Link :href="route('register')" class="text-blue-400 hover:underline">Register now</Link>
               </p> -->
               <div class="logo-icon mt-[10px]">
-                <span class="text-black font-bold text-sm">Cosrosmos</span>
+                <span class="text-black font-bold text-sm">KetexPay</span>
               </div>
               <h4 class="text-black font-extrabold text-3xl my-2 capitalize mt-[50px]">Sign In</h4>
               <p class="text-gray-400 text-sm">Login to your account</p>

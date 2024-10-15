@@ -1,6 +1,8 @@
 <?php
 namespace App\Functions;
 
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\VtuController;
 use App\Models\AccountCreditHistory;
 use App\Models\AccountStatement;
@@ -44,18 +46,336 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use App\Models\VtuPlatform;
+use App\Models\VtuProfit;
+use App\Models\VtuSale;
+use Illuminate\Support\Facades\Hash;
+use Faker\Factory as Faker;
+use Illuminate\Support\Facades\Artisan;
 
 class UsefulFunctions {
 
     public $CLUB_USERID;
     public $CLUB_APIKEY;
+    public $PAYSCRIBE_EMAIL_ID;
+
     public function __construct()
     {
         $this->CLUB_USERID = env("CLUB_USERID");
         $this->CLUB_APIKEY = env("CLUB_APIKEY");
+        $this->PAYSCRIBE_EMAIL_ID = env("PAYSCRIBE_EMAIL_ID");
+    }
+
+    public function generateArrOfNetworksAcctingSearch($type, $details_arr){
+        $type = strtolower($type);
+        $network_arr = [];
+        foreach ($details_arr[$type] as $key => $value) {
+            $network_arr[] = $key;
+        }
+
+        return $network_arr;
+    }
+
+    public function inputDummyDataForVtuProfitAndSales(){
+        $vtu_sales = VtuSale::all();
+        $vtu_profits = VtuProfit::all();
+
+        $date1 = "Aug 2024";
+        $date2 = "Aug 2030";
+        $dates = $this->outPutMonthsBetweenTwoDates($date1, $date2);
+
+        $total_profit = 0.00;
+        $total_sales = 0.00;
+
+        foreach ($vtu_sales as $sale) {
+            for($i = 0; $i < count($dates); $i++){
+                $amount = rand(100, 100000);
+                $column = strtolower(str_replace(' ', '_', $dates[$i]));
+                $sale->$column = $amount;
+                $total_sales += $amount;
+            }
+
+            $sale->save();
+        }
+
+        foreach ($vtu_profits as $profit) {
+            for($i = 0; $i < count($dates); $i++){
+                $amount = rand(10, 1000);
+                $column = strtolower(str_replace(' ', '_', $dates[$i]));
+                $profit->$column = $amount;
+                $total_profit += $amount;
+            }
+            $profit->save();
+        }
+
+        $admin = User::find(10);
+        $admin->total_vtu_sales = $total_sales;
+        $admin->total_vtu_profit = $total_profit;
+
+        $admin->save();
+
+    }
+
+    public function outPutMonthsBetweenTwoDates($date1, $date2){
+        $begin = new \DateTime($date1);
+        $end = new \DateTime($date2);
+
+        $interval = \DateInterval::createFromDateString('1 month');
+        $period = new \DatePeriod($begin, $interval, $end);
+
+        $months = [];
+        foreach ($period as $dt) {
+            $months[] = $dt->format("M Y");
+        }
+
+        return $months;
+    }
+
+    public function resetVtuSalesAndProfit(){
+        $admin = User::find(10);
+        $admin->total_vtu_sales = 0.00;
+        $admin->total_vtu_profit = 0.00;
+
+        $admin->save();
+
+        VtuSale::truncate();
+        VtuProfit::truncate();
+
+        // $vtu_sales_seeder = new \Database\Seeders\VtuSaleSeeder();
+        // $vtu_sales_seeder->run();
+
+        // $vtu_profit_seeder = new \Database\Seeders\VtuProfitSeeder();
+        // $vtu_profit_seeder->run();
+
+        Artisan::call('db:seed VtuSaleSeeder');
+        Artisan::call('db:seed VtuProfitSeeder');
+    }
+
+    public function removeAllNumbersFromString($str){
+        return preg_replace('/N,(\d{0,9}|\d{4}[A-Z])/', '', $str);
     }
 
 
+    public function getWalletBalanceForClubkonnect(){
+        $balance = 0.00;
+        $url = "https://www.nellobytesystems.com/APIWalletBalanceV1.asp?UserID={$this->CLUB_USERID}&APIKey={$this->CLUB_APIKEY}";
+        $use_post = false;
+
+
+        $response = $this->vtu_curl($url, $use_post, $post_data = []);
+
+        if ($this->isJson($response)) {
+            $response = json_decode($response);
+
+            if (isset($response->balance)) {
+                $balance = $response->balance;
+                $balance = (float) str_replace(',', '', $balance);
+            }
+        }
+        return $balance;
+    }
+
+    public function getWalletBalanceForGsubz(){
+        $balance = 0.00;
+        // return $balance;
+
+        $url = "https://gsubz.com/api/balance/";
+        $use_post = true;
+
+        $post_data = [
+            'api' => env('GSUBZ_APIKEY')
+        ];
+        $response = $this->gSubzVtuCurl($url, $use_post, $post_data);
+        // dd($response);
+        if ($this->isJson($response)) {
+            $response = json_decode($response);
+            if (is_object($response)) {
+                if (isset($response->balance)) {
+                    $balance = $response->balance;
+                    $balance = (float) str_replace(',', '', $balance);
+                }
+            }
+        }
+
+        return $balance;
+    }
+
+
+    public function getWalletBalanceForBuypower(){
+        $balance = 0.00;
+        // return $balance;
+
+        $url = "https://api.buypower.ng/v2/wallet/balance";
+        $use_post = false;
+
+        $response = $this->buyPowerVtuCurl($url, $use_post);
+
+        if ($this->isJson($response)) {
+
+            $response = json_decode($response);
+
+            if (is_object($response)) {
+
+                $balance = $response->balance;
+                $balance = (float) str_replace(',', '', $balance);
+
+            }
+        }
+
+        return $balance;
+    }
+
+    public function getWalletBalanceForPayscribe(){
+        $balance = 0.00;
+        // return $balance;
+
+        $url = "https://api.payscribe.ng/api/v1/account/?username=" .$this->PAYSCRIBE_EMAIL_ID;
+        $use_post = false;
+        $response = $this->payscribeVtuCurl($url, $use_post);
+
+
+        if ($this->isJson($response)) {
+            $response = json_decode($response);
+            if (is_object($response)) {
+                // return $response;
+                if(isset($response->status)){
+                    if($response->status){
+                        $balance = $response->message->details->wallet->wallet;
+                        $balance = (float) str_replace(',', '', $balance);
+                    }
+                }
+            }
+        }
+
+        return $balance;
+    }
+
+    public function getMinVendWithBuypower($meter_number, $disco, $meter_type){
+
+
+        $ret = ['valid' => false, 'customer_name' => '', 'minVendAmount' => 0, 'maxVendAmount' => 0];
+
+        if ($disco == "eko") {
+            $disco_code = "EKO";
+        } else if ($disco == "ikeja") {
+            $disco_code = "IKEJA";
+        } else if ($disco == "abuja") {
+            $disco_code = "ABUJA";
+        } else if ($disco == "ibadan") {
+            $disco_code = "IBADAN";
+        } else if ($disco == "enugu") {
+            $disco_code = "ENUGU";
+        } else if ($disco == "phc") {
+            $disco_code = "PH";
+        } else if ($disco == "kano") {
+            $disco_code = "KANO";
+        } else if ($disco == "kaduna") {
+            $disco_code = "KADUNA";
+        } else if ($disco == "jos") {
+            $disco_code = "JOS";
+        }
+
+        $url = "https://api.buypower.ng/v2/check/meter?meter=" . $meter_number . "&disco=" . $disco_code . "&vendType=" . $meter_type . "&orderId=true";
+        // return $url;
+        $use_post = false;
+
+        $response = $this->buyPowerVtuCurl($url, $use_post);
+
+        // return($response);
+
+        if ($this->isJson($response)) {
+            $response = json_decode($response);
+            if (is_object($response)) {
+                if (isset($response->name)) {
+
+                    $customer_name = $response->name;
+                    $minVendAmount = $response->minVendAmount;
+                    $maxVendAmount = $response->maxVendAmount;
+
+                    $ret['valid'] = true;
+                    $ret['customer_name'] = $customer_name;
+                    $ret['minVendAmount'] = $minVendAmount;
+                    $ret['maxVendAmount'] = $maxVendAmount;
+
+                }
+            }
+        }
+
+        return $ret;
+    }
+
+    public function createAdminAccount(){
+        User::create([
+            'id' => 10,
+            'user_name' => 'admin',
+            'name' => 'Admin One',
+            'is_admin' => 1,
+            'phone' => '08174622455',
+            'email' => 'meetglobalresources@gmail.com',
+            'country_id' => 151,
+            'password' => Hash::make('Dave1614..'),
+            'remember_token' => Str::random(10),
+            'created' => 1,
+        ]);
+
+        MlmDb::create([
+            'id' => 1,
+            'user_id' => 10,
+            'sponsor' => NULL,
+            'under' => NULL,
+            'stage' => 0,
+            'positioning' => NULL,
+            'date_created' => '29 Jul 2019',
+            'time_created' => '06:50:14am',
+            'created_at' => '2019-07-29 05:50:14',
+            'updated_at' => '2019-07-29 05:50:14',
+        ]);
+    }
+
+    public function createNewUsersSeeder($num){
+        $this->createAdminAccount();
+
+        $faker = Faker::create();
+        $arr = [];
+        for ($i = 0; $i <= $num; $i++) {
+            $name = $faker->name();
+            $user_name = str_ireplace(array('\'', '"', ',', ';', '<', '>', '.'), '', strtolower(str_replace(' ', '', $name)), $user_name);
+            $email =  $user_name . '@gmail.com';
+            $phone = '08' . $faker->numerify('########');
+
+            $request = new \Illuminate\Http\Request();
+            $request->setMethod('POST'); //default METHOD
+
+            $request->merge([
+                'id' => 10,
+                'name' => $name,
+                'user_name' => $user_name,
+                'email' => $email,
+                'phone' => $phone,
+                'password' => 'Dave1614..',
+                'password_confirmation' => 'Dave1614..',
+            ]);
+
+
+            $registeredUserController = new RegisteredUserController();
+            $registeredUserController->store($request, true);
+
+            $request2 = new \Illuminate\Http\Request();
+            $request2->setMethod('POST'); //default METHOD
+
+            sleep(2);
+            $last_user_id = User::latest()->first()->id;
+
+            $request2->merge([
+                'user_id' => $last_user_id,
+                'position_selected' => false,
+            ]);
+
+            $authenticatedSessionController = new AuthenticatedSessionController();
+            $authenticatedSessionController->completeRegistrationStep2($request2, true);
+        }
+
+    }
 
     public function getTotalAmountCreditedByUserInADay($user_id){
         $total = 0.00;
@@ -858,10 +1178,10 @@ class UsefulFunctions {
     public function validateDecoderNumber($platform, $operator, $decoder_number){
         $customer_name = "";
 
-        if($platform == "clubkonnect"){
+        if($platform == "clubkonnect"  || $platform == "gsubz"){
 
             $url = "https://www.nellobytesystems.com/APIVerifyCableTVV1.0.asp?UserID=" . $this->CLUB_USERID . "&APIKey=" . $this->CLUB_APIKEY . "&CableTV=" . $operator . "&SmartCardNo=" . $decoder_number;
-            // echo $url;
+            dd($url);
             $use_post = true;
 
 
@@ -1011,6 +1331,39 @@ class UsefulFunctions {
         return $new_price;
     }
 
+    public function getDiscountForElectricityByNetwork($disco){
+        $discount = 0.00;
+
+        $vtu_plan = VtuPlatform::where('name', "{$disco}_electricity")->first();
+        if (!is_null($vtu_plan)) {
+            $discount = $vtu_plan->purchaser_percentage;
+        }
+
+        return (double) $discount;
+    }
+
+    public function getDiscountForDataByNetwork($network){
+        $discount = 0.00;
+
+        $vtu_plan = VtuPlatform::where('name', "{$network}_data")->first();
+        if (!is_null($vtu_plan)) {
+            $discount = $vtu_plan->purchaser_percentage;
+        }
+
+        return (double) $discount;
+    }
+
+    public function getDiscountForCableTvByNetwork($tv){
+        $discount = 0.00;
+
+        $vtu_plan = VtuPlatform::where('name', "{$tv}_cable")->first();
+        if (!is_null($vtu_plan)) {
+            $discount = $vtu_plan->purchaser_percentage;
+        }
+
+        return (double) $discount;
+    }
+
     public function getDiscountForAirtimeByNetwork($network){
         $discount = 0.00;
         $airtime_plan = AirtimeTopup::where('network', $network)->get();
@@ -1123,6 +1476,80 @@ class UsefulFunctions {
                                 $product_id = $plans[$i]->PACKAGE_ID;
 
                                 $price = $plans[$i]->PACKAGE_AMOUNT;
+
+
+                                // $arr['clubkonnect'][] = [
+                                //     'name' => $name,
+                                //     'product_id' => $product_id,
+                                //     'product_code' => $product_code,
+                                //     'price' => $price,
+                                // ];
+
+                                if ($options->price_alteration_option == 'percentage') {
+                                    $new_price = round((($options->percentage / 100) * $price) + $price, 2);
+
+                                    $new_price += $options->added_amount;
+                                } else {
+                                    $preset_plans = json_decode($data_plan->details);
+                                    // $preset_plans = json_decode(json_encode($preset_plans));
+                                    // dd($preset_plans);
+
+                                    foreach ($preset_plans as $plan) {
+                                        if (isset($plan->$platform)) {
+
+                                            $preset_plan = $plan->$platform;
+                                            $new_price = $price;
+                                            if (!is_null($preset_plan)) {
+                                                $specific_value = $product_id;
+
+                                                $filtered_array = array_filter($preset_plan, function ($obj) use ($specific_value) {
+                                                    return $obj->product_id == $specific_value;
+                                                });
+
+                                                // $filtered_array = json_decode(json_encode($filtered_array));
+                                                // dd($filtered_array);
+                                                if (count($filtered_array) > 0) {
+
+                                                    foreach ($filtered_array as $array) {
+                                                        $new_price = $array->price;
+                                                    }
+                                                }
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                $plans_arr[] = [
+                                    'name' => $name,
+                                    'product_id' => $product_id,
+                                    'old_price' => (float) $price,
+                                    'new_price' => (float) $new_price,
+                                ];
+                            }
+                        }
+                    }
+                }
+            } else if ($platform == "gsubz") {
+                $url = "https://vtucreator.site/api/vtpass/plans/?serviceID={$network}";
+                $use_post = false;
+
+                $response = $this->gSubzVtuCurl($url, $use_post);
+
+                if ($response->ok()) {
+                    $response = $response->json();
+                    if (!is_null($response)) {
+                        $response = json_decode(json_encode($response));
+                        // return $response->MOBILE_NETWORK->$network;
+
+                        $plans = $response->list;
+
+                        if (count($plans) > 0) {
+
+                            for ($i = 0; $i < count($plans); $i++) {
+                                $name = $plans[$i]->display_name;
+                                $product_id = $plans[$i]->value;
+                                $price = $plans[$i]->price;
 
 
                                 // $arr['clubkonnect'][] = [
@@ -1381,10 +1808,10 @@ class UsefulFunctions {
                                             $preset_plan = $plan->$platform;
                                             $new_price = $price;
                                             if (!is_null($preset_plan)) {
-                                                $specific_value = $product_id;
+                                                $specific_value = $product_code;
 
                                                 $filtered_array = array_filter($preset_plan, function ($obj) use ($specific_value) {
-                                                    return $obj->product_id == $specific_value;
+                                                    return $obj->product_code == $specific_value;
                                                 });
 
                                                 // $filtered_array = json_decode(json_encode($filtered_array));
@@ -1436,13 +1863,13 @@ class UsefulFunctions {
 
     public function getAllCablePlansDefaultByNetwork($network)
     {
-        // $gsubz_plans = $this->getAllGsubzCablePlansForDefault($network);
-        $payscribe_plans = $this->getAllPayscribeCablePlansForDefault($network);
+        $gsubz_plans = $this->getAllGsubzCablePlansForDefault($network);
+        // $payscribe_plans = $this->getAllPayscribeCablePlansForDefault($network);
         $club_plans = $this->getAllClubCablePlansForDefault($network);
 
 
         // return json_encode($club_plans);
-        return json_encode(array_merge($payscribe_plans, $club_plans));
+        return json_encode(array_merge($gsubz_plans, $club_plans));
     }
 
 
@@ -1545,55 +1972,97 @@ class UsefulFunctions {
         $ret_arr = [];
 
         $network = strtolower($network);
-        if ($network == 'mtn') {
-            $service_ids = ['mtn_sme', 'mtn_cg', 'mtncg', 'mtn_cg_lite', 'mtn_coupon'];
-        } else if ($network == 'glo') {
-            $service_ids = ['glo_data'];
-        } else if ($network == 'airtel') {
-            $service_ids = ['airtel_cg', 'airtelcg'];
-        } else if ($network == '9mobile') {
-            $service_ids = ['etisalat_data'];
-        }
 
+        $arr = ['gsubz' => null];
 
+        $url = "https://vtucreator.site/api/vtpass/plans/?serviceID=" . $network;
+        $use_post = false;
+        $response = $this->gSubzVtuCurl($url, $use_post);
+        if ($response->ok()) {
+            $response = $response->json();
+            if (!is_null($response)) {
+                $response = json_decode(json_encode($response));
+                $plans = $response->list;
+                if (count($plans) > 0) {
 
-        for ($i = 0; $i < count($service_ids); $i++) {
-            $service_id = $service_ids[$i];
-            $arr = ['gsubz_' . $service_id => null];
+                    for ($j = 0; $j < count($plans); $j++) {
 
-            $url = "https://gsubz.com/api/plans/?service=" . $service_id;
-            $use_post = false;
-            $response = $this->gSubzVtuCurl($url, $use_post);
-            if ($response->ok()) {
-                $response = $response->json();
-                if (!is_null($response)) {
-                    $response = json_decode(json_encode($response));
-                    $plans = $response->plans;
-                    if (count($plans) > 0) {
+                        $name = $plans[$j]->display_name;
+                        $product_id = $plans[$j]->value;
+                        $price = $plans[$j]->price;
 
-                        for ($j = 0; $j < count($plans); $j++) {
-
-                            $name = $plans[$j]->displayName;
-                            $product_id = $plans[$j]->value;
-                            $price = $plans[$j]->price;
-
-                            $arr['gsubz_' . $service_id][] = [
-                                'name' => $name,
-                                'product_id' => $product_id,
-                                'price' => (float) $price,
-                            ];
-                        }
+                        $arr['gsubz'][] = [
+                            'name' => $name,
+                            'product_id' => $product_id,
+                            'price' => (float) $price,
+                        ];
                     }
                 }
             }
+        }
 
-            $ret_arr[] = $arr;
-        };
+        $ret_arr[] = $arr;
+
 
 
 
         return $ret_arr;
     }
+
+    // public function getAllGsubzCablePlansForDefault($network)
+    // {
+    //     $ret_arr = [];
+
+    //     $network = strtolower($network);
+    //     if ($network == 'mtn') {
+    //         $service_ids = ['mtn_sme', 'mtn_cg', 'mtncg', 'mtn_cg_lite', 'mtn_coupon'];
+    //     } else if ($network == 'glo') {
+    //         $service_ids = ['glo_data'];
+    //     } else if ($network == 'airtel') {
+    //         $service_ids = ['airtel_cg', 'airtelcg'];
+    //     } else if ($network == '9mobile') {
+    //         $service_ids = ['etisalat_data'];
+    //     }
+
+
+
+    //     for ($i = 0; $i < count($service_ids); $i++) {
+    //         $service_id = $service_ids[$i];
+    //         $arr = ['gsubz_' . $service_id => null];
+
+    //         $url = "https://gsubz.com/api/plans/?service=" . $service_id;
+    //         $use_post = false;
+    //         $response = $this->gSubzVtuCurl($url, $use_post);
+    //         if ($response->ok()) {
+    //             $response = $response->json();
+    //             if (!is_null($response)) {
+    //                 $response = json_decode(json_encode($response));
+    //                 $plans = $response->plans;
+    //                 if (count($plans) > 0) {
+
+    //                     for ($j = 0; $j < count($plans); $j++) {
+
+    //                         $name = $plans[$j]->displayName;
+    //                         $product_id = $plans[$j]->value;
+    //                         $price = $plans[$j]->price;
+
+    //                         $arr['gsubz_' . $service_id][] = [
+    //                             'name' => $name,
+    //                             'product_id' => $product_id,
+    //                             'price' => (float) $price,
+    //                         ];
+    //                     }
+    //                 }
+    //             }
+    //         }
+
+    //         $ret_arr[] = $arr;
+    //     };
+
+
+
+    //     return $ret_arr;
+    // }
 
     public function getAllEminencePlansForDefault($network)
     {
@@ -3273,6 +3742,41 @@ class UsefulFunctions {
         }
     }
 
+    public function getPackageAmountForCableTvGsubz($operator, $product_code)
+    {
+        $amount = 0.00;
+        $url = "https://vtucreator.site/api/vtpass/plans/?serviceID={$operator}";
+        // echo $url;
+        $use_post = false;
+
+        $response = $this->gSubzVtuCurl($url, $use_post);
+
+        if ($this->isJson($response)) {
+            $response = json_decode($response);
+            // var_dump($response);
+            if (is_object($response)) {
+                if (isset($response->list)) {
+                    $j = 0;
+
+                    $rows = $response->list;
+                    for ($i = 0; $i < count($rows); $i++) {
+                        $j++;
+
+                        $package_id = $rows[$i]->value;
+                        $package_name = $rows[$i]->display_name;
+                        $package_amount = $rows[$i]->price;
+
+                        if ($package_id == $product_code) {
+                            $amount = $package_amount;
+                        }
+                    }
+                }
+            }
+        }
+
+        return $amount;
+    }
+
     public function getPackageAmountForCableTvClub($club_type, $product_code)
     {
         $amount = 0.00;
@@ -3353,12 +3857,20 @@ class UsefulFunctions {
         return $response;
     }
 
-    public function sendMeterTokenForPrepaidToUserByNotif($user_id, $email, $date, $time, $orderid, $disco, $meter_no, $amount, $meter_token)
+    public function sendMeterTokenForPrepaidToUserByNotif($user_id, $email, $date, $time, $orderid, $disco, $meter_no, $amount, $meter_token, $parcels = null)
     {
 
         $title = "Successful Prepaid Electricity Recharge";
         $message = "Your Prepaid Electricity Recharge Was Successful With The Following Details: <br>";
         $message .= "Order Id: <em class='text-primary'>" . $orderid . "</em><br>";
+        if(!is_null($parcels)){
+            for($l = 0; $l < count($parcels); $l++){
+
+                $message .= "<h4 class=''>" . $parcels[$l]->type."</h3>";
+                $message .= "<p class='text-primary'>".$parcels[$l]->content."</p>";
+
+            }
+        }
         $message .= "Meter Token: <em class='text-primary'>" . $meter_token . "</em><br>";
         $message .= "Disco: <em class='text-primary'>" . $disco . "</em><br>";
         $message .= "Meter No.: <em class='text-primary'>" . $meter_no . "</em><br>";
@@ -3452,7 +3964,7 @@ class UsefulFunctions {
         return $amount;
     }
 
-    public function getVtuDataBundleCostByProductId($type, $product_id)
+    public function getVtuDataBundleCostByProductId($type, $product_code)
     {
         $url = "https://www.nellobytesystems.com/APIQueryV1.asp?UserID=".$this->CLUB_USERID."&APIKey=". $this->CLUB_APIKEY."&OrderID=6322187656";
         $url = "https://www.nellobytesystems.com/APIDatabundlePlansV1.asp";
@@ -3481,8 +3993,8 @@ class UsefulFunctions {
                 }
 
                 for ($i = 0; $i < count($bundles); $i++) {
-                    $PRODUCT_ID = $bundles[$i]->PRODUCT_ID;
-                    if ($PRODUCT_ID == $product_id) {
+                    $PRODUCT_CODE = $bundles[$i]->PRODUCT_CODE;
+                    if ($PRODUCT_CODE == $product_code) {
                         $amount = $bundles[$i]->PRODUCT_AMOUNT;
                         break;
                     }
@@ -3635,7 +4147,7 @@ class UsefulFunctions {
                             $index++;
                             $all_plans_arr[$i]['index'] = $index;
                             $product_amount = $all_plans_arr[$i]['amount'];
-                            $all_plans_arr[$i]['amount'] = number_format($product_amount,2);
+                            $all_plans_arr[$i]['amount'] = ($product_amount);
                             $all_plans_arr[$i]['combo'] = false;
                         }
                         $data_plans = $all_plans_arr;
@@ -3748,7 +4260,7 @@ class UsefulFunctions {
                             $index++;
                             $all_plans_arr[$i]['index'] = $index;
                             $product_amount = $all_plans_arr[$i]['amount'];
-                            $all_plans_arr[$i]['amount'] = number_format($product_amount, 2);
+                            $all_plans_arr[$i]['amount'] = ($product_amount);
                             $all_plans_arr[$i]['combo'] = false;
                         }
 
@@ -3816,38 +4328,28 @@ class UsefulFunctions {
                         $product_name = $plans[$i]->PRODUCT_NAME;
                         $product_amount = $plans[$i]->PRODUCT_AMOUNT;
                         // $product_amount = $product_amount + 20;
-                        if ($network == "MTN") {
 
-                            $amt_to_add = 25;
+                        $new_price = $this->getDataPlanNewPrice($network, 'clubkonnect', $product_code, $product_amount);
 
-                        } else if ($network == "Glo") {
-                            $amt_to_add = 25;
-                        } else if ($network == "9mobile") {
-                            $amt_to_add = 25;
-                        } else if ($network == "Airtel") {
-                            $amt_to_add = 25;
-                        }
 
-                        $new_price = $this->getDataPlanNewPrice($network, 'clubkonnect', $product_id, $product_amount);
+                        $index++;
+                        $real_plans_arr[$index - 1]['index'] = $index;
+                        $real_plans_arr[$index - 1]['amount'] = $new_price;
+                        $real_plans_arr[$index - 1]['product_code'] = $product_code;
+                        $real_plans_arr[$index - 1]['product_id'] = $product_id;
+                        $real_plans_arr[$index - 1]['product_name'] = $product_name;
+                        $real_plans_arr[$index - 1]['sub_type'] = 'clubkonnect';
+                        $real_plans_arr[$index - 1]['network'] = $network;
+                        $real_plans_arr[$index - 1]['combo'] = false;
 
-                        // $product_amount = round((($perc_disc * $product_amount) + $product_amount) + $amt_to_add, 2);
-                        // $product_amount = $product_amount + $amt_to_add;
-
-                        // if (($product_code != "3000" && $network == "MTN") || $network == "Glo" || $network == "9mobile" || $network == "Airtel") {
-                            // if($network == "MTN" || $network == "Glo" || $network == "9mobile" || $network == "Airtel") {
-                            $index++;
-                            $real_plans_arr[$index - 1]['index'] = $index;
-                            $real_plans_arr[$index - 1]['amount'] = number_format($new_price, 2);
-                            $real_plans_arr[$index - 1]['product_code'] = $product_code;
-                            $real_plans_arr[$index - 1]['product_id'] = $product_id;
-                            $real_plans_arr[$index - 1]['product_name'] = $product_name;
-                            $real_plans_arr[$index - 1]['sub_type'] = 'clubkonnect';
-                            $real_plans_arr[$index - 1]['network'] = $network;
-                            $real_plans_arr[$index - 1]['combo'] = false;
-                        // }
                     }
 
+                    $price = array_column($real_plans_arr, 'amount');
+                    array_multisort($price, SORT_ASC, $real_plans_arr);
+
                     $data_plans = $real_plans_arr;
+
+
                 }
             }
         }
@@ -3882,7 +4384,10 @@ class UsefulFunctions {
                             if (!is_null($preset_plan)) {
                                 $specific_value = $product_id;
 
-                                $filtered_array = array_filter($preset_plan, function ($obj) use ($specific_value) {
+                                $filtered_array = array_filter($preset_plan, function ($obj) use ($specific_value, $platform) {
+                                    if($platform == "clubkonect"){
+                                        return $obj->product_code == $specific_value;
+                                    }
                                     return $obj->product_id == $specific_value;
                                 });
 
@@ -3915,48 +4420,24 @@ class UsefulFunctions {
 
             if ($network == "mtn") {
                 $network = "MTN";
-                // $url = "https://gsubz.com/api/plans/?service=mtn_sme";
-                // $url_2 = "https://gsubz.com/api/plans/?service=mtncg";
 
-                $network_2 = "Mtn";
-                $perc_disc = 0.04;
-                $additional_charge = 25;
             } else if ($network == "glo") {
                 $network = "GLO";
-                // $url .= "glo_data";
-                $network_2 = "Glo";
-                $perc_disc = 0.04;
-                $additional_charge = 25;
+
             } else if ($network == "airtel") {
                 $network = "AIRTEL";
-                // $url .= "airtelcg";
-                // $url .= "airtel_cg";
-                $network_2 = "Airtel";
-                $perc_disc = 0.04;
-                $additional_charge = 25;
+
             } else if ($network == "9mobile") {
                 $network = "9MOBILE";
-                // $url .= "etisalat_data";
-                $network_2 = "9mobile";
-                $perc_disc = 0.04;
-                $additional_charge = 25;
+
             }
 
 
-            // $post_data = array(
-            //     'network' => $network_2
-            // );
-
-
-
-
             $response = $this->gSubzVtuCurl($url, $use_post);
-            // return $response;
-
 
             if ($this->isJson($response)) {
                 $response = json_decode($response);
-                // var_dump($response);
+
                 if (is_object($response)) {
                     if (is_array($response->plans)) {
 
@@ -3972,16 +4453,12 @@ class UsefulFunctions {
                                         $plans[$i]->gsubz_type = "sme";
                                     } else {
                                         $plans[$i]->gsubz_type = "regular";
-                                        // $additional_charge = 28;
+
                                     }
                                 }
 
 
                             }
-
-                            // return $plans;
-
-                            $j = 0;
 
 
                             $plan_new_arr = array();
@@ -3995,10 +4472,6 @@ class UsefulFunctions {
                                 $product_amount = $plans[$i]->price;
                                 // $product_amount = $product_amount + 20;
 
-
-                                // $product_amount = round((0.04 * $product_amount) + $product_amount, 2);
-
-                                // $product_amount += $additional_charge;
 
                                 if ($network == "MTN") {
                                     $gsubz_type = $plans[$i]->gsubz_type;
@@ -4021,13 +4494,7 @@ class UsefulFunctions {
                                     $plan_new_arr[$i]['gsubz_type'] = $gsubz_type;
                                 }
 
-                                // if($network == "MTN" && $product_id == "179"){
-                                //     $plan_new_arr[$i]['amount'] = $product_amount + 8;
-                                // }
-
                             }
-
-                            // return $plan_new_arr;
 
                             $price = array_column($plan_new_arr, 'amount');
                             array_multisort($price, SORT_ASC, $plan_new_arr);
@@ -4039,10 +4506,10 @@ class UsefulFunctions {
                                 $index++;
                                 $all_plans_arr[$i]['index'] = $index;
                                 $product_amount = $all_plans_arr[$i]['amount'];
-                                $all_plans_arr[$i]['amount'] = number_format($product_amount, 2);
+                                $all_plans_arr[$i]['amount'] = $product_amount;
                                 $all_plans_arr[$i]['combo'] = false;
                             }
-                            // return $all_plans_arr;
+
 
 
 
@@ -4271,7 +4738,7 @@ class UsefulFunctions {
                     $product_name = $row->data_amount;
                     $product_amount = $row->amount;
                     $new_arr[$j]['index'] = $index;
-                    $new_arr[$j]['amount'] = number_format($product_amount, 2);
+                    $new_arr[$j]['amount'] = ($product_amount);
                     $new_arr[$j]['product_name'] = $product_name;
                     $new_arr[$j]['network'] = $network;
                     $new_arr[$j]['product_id'] = $product_id;
@@ -4434,28 +4901,51 @@ class UsefulFunctions {
             ])->withHeaders($headers)->get($url);
         } else {
 
-            $curl = curl_init();
+            // $curl = curl_init();
 
+            // curl_setopt_array($curl, array(
+            //     CURLOPT_URL => 'https://gsubz.com/api/pay/',
+            //     CURLOPT_RETURNTRANSFER => true,
+            //     CURLOPT_ENCODING => '',
+            //     CURLOPT_MAXREDIRS => 10,
+            //     CURLOPT_TIMEOUT => 0,
+            //     CURLOPT_FOLLOWLOCATION => true,
+            //     CURLOPT_SSL_VERIFYHOST => 0,
+            //     CURLOPT_SSL_VERIFYPEER => FALSE,
+            //     CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            //     CURLOPT_CUSTOMREQUEST => 'POST',
+            //     CURLOPT_POSTFIELDS => $post_data,
+            //     CURLOPT_HTTPHEADER => array(
+            //         'Authorization: Bearer ' . $api,
+            //         'Cookie: PHPSESSID=6f4bddcae09aa26dace3c6bd726c23f5'
+            //     ),
+            // ));
+
+            // $response = curl_exec($curl);
+
+            // curl_close($curl);
+
+            $host = $url;
+
+            $curl = curl_init();
             curl_setopt_array($curl, array(
-                CURLOPT_URL => 'https://gsubz.com/api/pay/',
+                CURLOPT_URL => $host,
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING => '',
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_TIMEOUT => 0,
-                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_POST => true,
+                CURLOPT_ENCODING => "",
+                CURLOPT_POSTFIELDS => $post_data,
+                CURLOPT_HTTPHEADER => array("Authorization: Bearer $api"),
+                CURLOPT_FOLLOWLOCATION=> true,
                 CURLOPT_SSL_VERIFYHOST => 0,
                 CURLOPT_SSL_VERIFYPEER => FALSE,
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_POSTREDIR => 3,
+                CURLOPT_TIMEOUT => 30,
                 CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-                CURLOPT_CUSTOMREQUEST => 'POST',
-                CURLOPT_POSTFIELDS => $post_data,
-                CURLOPT_HTTPHEADER => array(
-                    'Authorization: Bearer ' . $api,
-                    'Cookie: PHPSESSID=6f4bddcae09aa26dace3c6bd726c23f5'
-                ),
+                CURLOPT_CUSTOMREQUEST => "POST",
             ));
-
             $response = curl_exec($curl);
-
+            // echo curl_error($curl);
             curl_close($curl);
         }
         return $response;
@@ -4468,7 +4958,7 @@ class UsefulFunctions {
 
 
 
-    public function getVtuPlatformToUse($type,$network){
+    public function getVtuPlatformToUse($type, $network){
         if($type != "" ){
             $str = $network . '_' . $type;
         }else{
@@ -4495,11 +4985,166 @@ class UsefulFunctions {
 
 
 
-    public function addTransactionStatus($form_array)
+    public function addTransactionStatus($form_array, $record_gain = true)
     {
-        VtuTransaction::create($form_array);
+        $type = $form_array['type'];
+        $network = $form_array['sub_type'];
+        $user_id = $form_array['user_id'];
+        $amount = $form_array['amount'];
+        $date = $form_array['date'];
+        $time = $form_array['time'];
+
+
+
+        $vtu_transaction = VtuTransaction::create($form_array);
+
+        $vtu_platform = VtuPlatform::where('name', "{$network}_{$type}")->first();
+        if(!is_null($vtu_platform)){
+            if($vtu_platform->upline_percentage > 0 && $vtu_platform->upline_generations > 0){
+
+                $vtu_transaction->upline_percentage = $vtu_platform->upline_percentage;
+                $vtu_transaction->upline_generations = $vtu_platform->upline_generations;
+                $vtu_transaction->save();
+
+                $vtu_income = ($vtu_platform->upline_percentage / 100) * $amount;
+
+
+                $mlm_db_id = $this->getUsersFirstMlmDbId($user_id);
+                $ids_to_credit = $this->getIdsToCreditVtu($mlm_db_id, $vtu_platform->upline_generations);
+                // dd($ids_to_credit);
+                $ids_to_credit_num = count($ids_to_credit);
+                for ($i = 0; $i < count($ids_to_credit); $i++) {
+                    $placements_user_id = $ids_to_credit[$i];
+                    $placements_mlm_db_id = $this->getUsersFirstMlmDbId($placements_user_id);
+
+
+
+                    MlmEarning::create([
+                        'user_id' => $placements_user_id,
+                        'mlm_db_id' => $placements_mlm_db_id,
+                        'type' => "14_{$type}",
+                        'amount' => $vtu_income,
+                        'date' => $date,
+                        'time' => $time,
+                    ]);
+
+
+
+                    $this->creditUser($placements_user_id, $vtu_income, "Upline {$type} Bonus");
+                }
+            }
+        }
+
+        if($record_gain){
+            if($type == 'airtime' || $type == 'data' || $type == 'cable' || $type == 'electricity' || $type == 'router' || $type == 'educational'){
+                $this->fixGainAndSaleRecordsForVtu($vtu_transaction->id);
+            }
+        }
+
 
         return true;
+    }
+
+    public function fixGainAndSaleRecordsForVtu($id){
+        $vtu_transaction = VtuTransaction::find($id);
+
+        $response = json_decode($vtu_transaction->response);
+        if($vtu_transaction->type == "airtime"){
+            if($vtu_transaction->service == "clubkonnect"){
+                $amount_bought = (float) $response->amount;
+            }else if($vtu_transaction->service == "gsubz"){
+                $amount_bought = (float) $response->amountPaid;
+            }
+        }else if($vtu_transaction->type == "data"){
+            if($vtu_transaction->service == "clubkonnect"){
+                $amount_bought = (float) $response->amount;
+            }else if($vtu_transaction->service == "gsubz"){
+                $amount_bought = (float) $response->amountPaid;
+            }
+        }else if($vtu_transaction->type == "cable"){
+            if($vtu_transaction->service == "clubkonnect"){
+                $amount_bought = (float) $response->amount;
+            }else if($vtu_transaction->service == "gsubz"){
+                $amount_bought = (float) $response->amountPaid;
+            }
+        }else if($vtu_transaction->type == "electricity"){
+            if($vtu_transaction->service == "buypower"){
+                $amount_bought = (float) $response->data->amountGenerated;
+            }else if($vtu_transaction->service == "gsubz"){
+                $amount_bought = (float) $response->amountPaid;
+            }
+        }
+
+
+
+        $amount_debited = (float) $vtu_transaction->amount_debited;
+        $amount_shared = 0.00;
+
+        if($vtu_transaction->upline_percentage > 0 && $vtu_transaction->upline_generations > 0){
+            $vtu_income = ($vtu_transaction->upline_percentage / 100) * $vtu_transaction->amount;
+            $amount_shared = (float) $vtu_income * $vtu_transaction->upline_generations;
+        }
+
+        $amount_sold = $amount_debited + $amount_shared;
+        $profit = (float) round($amount_sold - $amount_bought, 2);
+
+        $vtu_transaction->profit = $profit;
+        $vtu_transaction->save();
+
+        $this->addUpVtuProfitAndSales($vtu_transaction->type, $vtu_transaction->service, $vtu_transaction->sub_type, $profit, $amount_debited);
+
+        return [
+            'amount_bought' => $amount_bought,
+            'amount_debited' => $amount_debited,
+            'amount_shared' => $amount_shared,
+            'amount_sold' => $amount_sold,
+            'profit' => $profit
+        ];
+    }
+
+
+    public function addUpVtuProfitAndSales($type, $service, $network, $profit, $amount_debited){
+        $vtu_profit = VtuProfit::where('type', $type)->where('service', $service)->where('network', $network)->first();
+        $vtu_sale = VtuSale::where('type', $type)->where('service', $service)->where('network', $network)->first();
+
+
+        if(!is_null($vtu_profit) && !is_null($vtu_sale)){
+            $month_year = strtolower(date("M_Y"));
+            // return $month_year;
+
+            if(isset($vtu_profit->$month_year) && isset($vtu_sale->$month_year)){
+
+                $vtu_profit->$month_year = $profit + (float) $vtu_profit->$month_year;
+                $vtu_sale->$month_year = $amount_debited + (float) $vtu_sale->$month_year;
+
+                $vtu_profit->save();
+                $vtu_sale->save();
+            }
+        }
+    }
+
+    public function getIdsToCreditVtu($mlm_db_id, $steps){
+        $ret_arr = [];
+
+        for($i = 1; $i <= $steps; $i++){
+
+            $query = DB::table('mlm_db')->where('id', $mlm_db_id)->get('under');
+            if($query->count() == 1){
+                foreach($query as $row){
+                    $under = $row->under;
+                    if(!is_null($under)){
+                        $user_id = $this->getMlmDbParamById("user_id",$under);
+                        // $this->getIdsToCreditPlacement($under);
+                        $mlm_db_id = $under;
+                        $ret_arr[] = $user_id;
+                    }
+                }
+
+            }
+
+        }
+
+        return $ret_arr;
     }
 
     public function getUserTotalAmountByUse($user_id)

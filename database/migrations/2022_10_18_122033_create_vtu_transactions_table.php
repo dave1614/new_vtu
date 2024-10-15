@@ -17,12 +17,18 @@ return new class extends Migration
         Schema::create('vtu_transactions', function (Blueprint $table) {
             $table->id();
             $table->foreignIdFor(User::class)->constrained()->onDelete('cascade')->nullable();
+            $table->string("service");
+            $table->decimal("profit", 2)->default(0.00);
             $table->string("type")->nullable();
             $table->string("sub_type")->nullable();
             $table->decimal("amount")->default(0.00);
+            $table->decimal("amount_debited")->default(0.00);
             $table->string("number")->nullable();
             $table->string("order_id")->nullable();
             $table->text('response')->nullable();
+            $table->decimal("discount", 20, 2)->default(0.00);
+            $table->decimal("upline_percentage", 20, 2)->default(0.00);
+            $table->integer("upline_generations")->default(0);
             $table->boolean("reloadly")->default(false);
             $table->boolean("approved")->default(false);
             $table->boolean("refunded")->default(false);

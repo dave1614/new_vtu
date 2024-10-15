@@ -16,6 +16,8 @@ return new class extends Migration
             $table->id();
             $table->boolean('is_admin')->default(false);
             $table->string('user_name');
+            $table->decimal("total_vtu_sales", 20, 2)->default(0.00);
+            $table->decimal("total_vtu_profit", 20, 2)->default(0.00);
             $table->decimal("earnings_wallet", 20, 2)->default(0.00);
             $table->decimal("total_upteam_earnings", 20, 2)->default(0.00);
             $table->decimal("total_earnings", 20, 2)->default(0.00);

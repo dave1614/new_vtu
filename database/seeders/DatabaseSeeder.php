@@ -23,18 +23,22 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CountrySeeder::class,
             RegionSeeder::class,
-            UserSeeder::class,
-            MlmDbSeeder::class,
             MlmChargesTableSeeder::class,
+            UserSeeder::class,
+            // MlmDbSeeder::class,
+
             VtuPlatformTableSeeder::class,
+            VtuSaleSeeder::class,
+            VtuProfitSeeder::class,
             EtisalatComboDataPlansTableSeeder::class,
             // SavingsFrequencySeeder::class,
             // SavingsDurationSeeder::class,
             AirtimeTopupSeeder::class,
             DataPlansSeeder::class,
             CablePlansSeeder::class,
-            RouterPlansSeeder::class,
             EducationalPlanSeeder::class,
+            RouterPlansSeeder::class,
+
         ]);
 
     }

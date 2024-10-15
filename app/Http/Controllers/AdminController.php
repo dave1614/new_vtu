@@ -21,6 +21,8 @@ use App\Models\MlmEarning;
 use App\Models\RouterPlan;
 use App\Models\TransferFundsHistory;
 use App\Models\User;
+use App\Models\VtuProfit;
+use App\Models\VtuSale;
 use App\Models\VtuTransaction;
 use App\Models\WithdrawalRequest;
 use App\Rules\CountryRule;
@@ -41,9 +43,13 @@ class AdminController extends Controller
     public $airtime_platforms;
     public $data_platforms;
     public $electricity_platforms;
+    public $discos;
     public $cable_platforms;
     public $router_platforms;
     public $educational_platforms;
+    public $allTypes = [];
+    public $accountingTypeOptions;
+    public $accountingDetailsParams;
 
     public function __construct()
     {
@@ -67,14 +73,14 @@ class AdminController extends Controller
             '9mobile' => ['payscribe' => 'payscribe', 'gsubz_etisalat_data' => 'gsubz_etisalat_data', 'clubkonnect' => 'clubkonnect'],
         ];
 
-        $this->electricity_platforms = [
-            'buypower' => 'buypower', 'payscribe' => 'payscribe',
-        ];
+        // $this->electricity_platforms = [
+        //     'buypower' => 'buypower', 'payscribe' => 'payscribe'
+        // ];
 
         $this->cable_platforms = [
-            'dstv' => ['clubkonnect' => 'clubkonnect', 'payscribe' => 'payscribe'],
-            'gotv' => ['clubkonnect' => 'clubkonnect', 'payscribe' => 'payscribe'],
-            'startimes' => ['clubkonnect' => 'clubkonnect', 'payscribe' => 'payscribe'],
+            'dstv' => ['clubkonnect' => 'clubkonnect', 'gsubz' => 'gsubz'],
+            'gotv' => ['clubkonnect' => 'clubkonnect', 'gsubz' => 'gsubz'],
+            'startimes' => ['clubkonnect' => 'clubkonnect', 'gsubz' => 'gsubz'],
 
         ];
 
@@ -91,9 +97,175 @@ class AdminController extends Controller
             'neco' => ['payscribe' => 'payscribe'],
 
         ];
+
+
+        $this->discos = [
+            'abuja', 'eko', 'enugu', 'ibadan', 'ikeja', 'jos', 'kaduna', 'kano', 'phc',
+        ];
+
+        $this->electricity_platforms = [
+            'abuja' => ['buypower' => 'buypower', 'payscribe' => 'payscribe', 'gsubz' => 'gsubz'],
+            'eko' => ['buypower' => 'buypower', 'payscribe' => 'payscribe', 'gsubz' => 'gsubz'],
+            'enugu' => ['buypower' => 'buypower', 'payscribe' => 'payscribe'],
+            'ibadan' => ['buypower' => 'buypower', 'payscribe' => 'payscribe', 'gsubz' => 'gsubz'],
+            'ikeja' => ['buypower' => 'buypower', 'payscribe' => 'payscribe', 'gsubz' => 'gsubz'],
+            'jos' => ['buypower' => 'buypower', 'gsubz' => 'gsubz'],
+            'kaduna' => ['buypower' => 'buypower', 'payscribe' => 'payscribe', 'gsubz' => 'gsubz'],
+            'kano' => ['buypower' => 'buypower', 'gsubz' => 'gsubz'],
+            'phc' => ['buypower' => 'buypower', 'payscribe' => 'payscribe', 'gsubz' => 'gsubz'],
+        ];
+
+
+        $this->accountingTypeOptions = [
+            ['id'=> 1, 'label'=> '---All---'],
+            ['id'=> 2, 'label'=> 'Airtime'],
+            ['id'=> 3, 'label'=> 'Data'],
+            ['id'=> 4, 'label'=> 'Cable'],
+            ['id'=> 5, 'label'=> 'Router'],
+            ['id'=> 6, 'label'=> 'Educational'],
+            ['id'=> 7, 'label'=> 'Electricity'],
+        ];
+
+        $this->accountingDetailsParams = [
+
+            'airtime'=> ['mtn' => ['gsubz', 'clubkonnect'], 'airtel' => ['gsubz', 'clubkonnect'] , 'glo' => ['gsubz', 'clubkonnect'], '9mobile' => ['gsubz', 'clubkonnect']],
+            'data'=> ['mtn' => ['payscribe', 'gsubz', 'clubkonnect'], 'airtel' => ['payscribe', 'gsubz', 'clubkonnect'], 'glo' => ['payscribe', 'gsubz', 'clubkonnect'], '9mobile' => ['payscribe', 'gsubz', 'clubkonnect']],
+            'cable'=> ['dstv' => ['clubkonnect', 'gsubz'], 'gotv' => ['clubkonnect', 'gsubz'], 'startimes' => ['clubkonnect', 'gsubz']],
+            'router'=> ['smile' => ['clubkonnect'], 'spectranet' => ['clubkonnect']],
+            'educational'=> ['waec' => ['clubkonnect', 'payscribe'], 'neco' => ['payscribe']],
+            'electricity'=> ['abuja' => ['buypower', 'payscribe', 'gsubz'], 'eko' => ['buypower', 'payscribe', 'gsubz'], 'enugu' => ['buypower'], 'ibadan' => ['buypower', 'payscribe', 'gsubz'], 'ikeja' => ['buypower', 'payscribe', 'gsubz'], 'jos' => ['buypower', 'gsubz'], 'kaduna' => ['buypower', 'payscribe', 'gsubz'], 'kano' => ['buypower', 'gsubz'], 'phc' => ['buypower', 'payscribe', 'gsubz']],
+
+        ];
+
+
+        for($i = 0; $i < count($this->accountingTypeOptions); $i++){
+            if($i == 0){
+                continue;
+            }
+            $this->allTypes[] = strtolower($this->accountingTypeOptions[$i]['label']);
+        }
     }
 
 
+    public function loadVtuAccountingRecords(Request $request){
+        $props['user'] = Auth::user();
+        $post_data = (Object) $request->input();
+
+
+
+        $response = ['success' => false, 'total_sum' => 0.00, 'wrong_date_format' => false];
+
+        if($request->has('class')){
+
+            $all_time = !$request->has('start_month') || !$request->has('end_month') ? true : false;
+            $proceed = true;
+            if(!$all_time){
+                //Confirm End date is after start date
+                if(strtotime($request->start_month) > strtotime($request->end_month)){
+                    $proceed = false;
+                    $response['wrong_date_format'] = true;
+                }else{
+                    $all_months = $this->functions->outPutMonthsBetweenTwoDates($request->start_month, $request->end_month);
+                }
+            }else{
+                $all_months = $this->functions->outPutMonthsBetweenTwoDates("Aug 2024", "Aug 2040");
+
+            }
+
+            if($proceed){
+
+                for($i = 0; $i < count($all_months); $i++){
+                    $all_months[$i] = strtolower(str_replace(' ', '_', $all_months[$i]));
+                }
+
+                $records =  $request->class == 'sales' ? VtuSale::where('id', '!=', 0) : VtuProfit::where('id', '!=', 0);
+                $records = $records->whereIn('type', $request->type ==  $this->accountingTypeOptions[0] ? $this->allTypes : [strtolower($request->type['label'])]);
+
+                if($request->type !=  $this->accountingTypeOptions[0]){
+                    $records = $records->whereIn('network', $request->sub_type['id'] == 1 ? $this->functions->generateArrOfNetworksAcctingSearch($request->type['label'], $this->accountingDetailsParams) : [$request->sub_type['label']]);
+
+                    if($request->sub_type['id'] != 1){
+                        // return $this->accountingDetailsParams[strtolower($request->type['label'])][strtolower($request->sub_type['label'])];
+                        $records = $records->whereIn('service', $request->service['id'] == 1 ? $this->accountingDetailsParams[strtolower($request->type['label'])][strtolower($request->sub_type['label'])] : [$request->service['label']]);
+                    }
+                }
+
+                $records = $records->get();
+
+                if($records->count() > 0){
+                    $recordsArray = $records->toArray();
+                    foreach ($recordsArray as $key => $value) {
+                        foreach ($value as $column => $val) {
+                            if(in_array($column, $all_months)){
+                                $response['total_sum'] += $val;
+                            }
+
+                        }
+                    }
+
+                    $response['success'] = true;
+                }
+
+
+
+            }
+        }
+        return $response;
+    }
+
+
+    public function loadVtuServicesDetails (Request $request){
+        $response = ['success' => false, 'details' => []];
+
+
+        $response['details'] = [
+            [
+                'name'=> 'gsubz',
+                'balance' => $this->functions->getWalletBalanceForGsubz(),
+                'fund_link' => ''
+            ],
+            [
+                'name'=> 'payscribe',
+                'balance' => $this->functions->getWalletBalanceForPayscribe(),
+                'fund_link' => ''
+            ],
+            [
+                'name'=> 'buypower',
+                'balance' => $this->functions->getWalletBalanceForBuypower(),
+                'fund_link' => ''
+            ],
+            [
+                'name'=> 'clubkonnect',
+                'balance' => $this->functions->getWalletBalanceForClubkonnect(),
+                'fund_link' => ''
+            ]
+        ];
+
+        $response['success'] = true;
+
+
+        return $response;
+    }
+
+
+
+
+
+
+    public function loadViewVtuAccounting(Request $request){
+        $props['user'] = Auth::user();
+
+        $props['typeOptions'] = $this->accountingTypeOptions;
+
+        $props['details_params'] = $this->accountingDetailsParams;
+
+        // return $this->functions->generateArrOfNetworksAcctingSearch('cable', $this->accountingDetailsParams);
+
+
+
+
+        return Inertia::render('Admin/ManageVtuAccounting', $props);
+    }
 
     public function loadManageVtuPage(Request $request, $param1 = null)
     {
@@ -103,6 +275,7 @@ class AdminController extends Controller
         $props['tvs'] = $this->tvs;
         $props['routers'] = $this->routers;
         $props['educationals'] = $this->educationals;
+        $props['discos'] = $this->discos;
 
         $props['airtime_platforms'] = $this->airtime_platforms;
         $props['data_platforms'] = $this->data_platforms;
@@ -130,6 +303,9 @@ class AdminController extends Controller
         $request->validate([
             'network' => ['required', Rule::in($this->educationals)],
             'platform' => ['required', Rule::in($this->educational_platforms[strtolower($request->network)])],
+            'discount' => 'required|numeric|max:100',
+            'upline_percentage' => 'required|numeric|max:100',
+            'upline_generations' => 'required|numeric|max:100',
             'modify_prices_status' => 'required|in:yes,no',
             'price_alteration_option' => 'required|in:percentage,direct',
             'percentage' => 'nullable|numeric|max:100',
@@ -141,7 +317,9 @@ class AdminController extends Controller
         $this->functions->setCurrentPlatform('educational', $request->network, $platform);
 
         $data_plan = EducationalPlan::where('network', $request->network)->get();
-        if ($data_plan->count() == 1) {
+        $vtu_platform = VtuPlatform::where('name', "{$request->network}_educational")->first();
+
+        if ($data_plan->count() == 1 && !is_null($vtu_platform)) {
             $data_plan = EducationalPlan::find($data_plan[0]->id);
 
 
@@ -190,6 +368,11 @@ class AdminController extends Controller
             }
 
             $data_plan->save();
+
+            $vtu_platform->purchaser_percentage = $request->discount;
+            $vtu_platform->upline_percentage = $request->upline_percentage;
+            $vtu_platform->upline_generations = $request->upline_generations;
+            $vtu_platform->save();
         }
 
         $response['success'] = true;
@@ -211,12 +394,18 @@ class AdminController extends Controller
                 $response['current_platform'] = $current_platform;
 
                 $data_plan = EducationalPlan::where('network', $network)->get();
-                if ($data_plan->count() == 1) {
+                $vtu_plan = VtuPlatform::where('name', "{$network}_educational")->first();
+
+                if ($data_plan->count() == 1 && !is_null($vtu_plan)) {
                     $data_plan = $data_plan[0];
                     $modify_prices_status = $request->has('temp') ? $request->modify_prices_status : $data_plan->modify_prices;
                     $price_alteration_option = $request->has('temp') ? $request->price_alteration_option : $data_plan->price_alteration_option;
                     $percentage = $request->has('temp') ? $request->percentage : $data_plan->percentage;
                     $added_amount = $request->has('temp') ? $request->added_amount : $data_plan->added_amount;
+
+                    $response['discount'] = $vtu_plan->purchaser_percentage;
+                    $response['upline_percentage'] = $vtu_plan->upline_percentage;
+                    $response['upline_generations'] = $vtu_plan->upline_generations;
 
                     $response['modify_prices_status'] = $modify_prices_status;
                     $response['price_alteration_option'] = $price_alteration_option;
@@ -258,6 +447,9 @@ class AdminController extends Controller
         $request->validate([
             'network' => ['required', Rule::in($this->routers)],
             'platform' => ['required', Rule::in($this->router_platforms[strtolower($request->network)])],
+            'discount' => 'required|numeric|max:100',
+            'upline_percentage' => 'required|numeric|max:100',
+            'upline_generations' => 'required|numeric|max:100',
             'modify_prices_status' => 'required|in:yes,no',
             'price_alteration_option' => 'required|in:percentage,direct',
             'percentage' => 'nullable|numeric|max:100',
@@ -269,7 +461,8 @@ class AdminController extends Controller
         $this->functions->setCurrentPlatform('router', $request->network, $platform);
 
         $data_plan = RouterPlan::where('network', $request->network)->get();
-        if ($data_plan->count() == 1) {
+        $vtu_platform = VtuPlatform::where('name', "{$request->network}_router")->first();
+        if ($data_plan->count() == 1 && !is_null($vtu_platform)) {
             $data_plan = RouterPlan::find($data_plan[0]->id);
 
 
@@ -318,6 +511,11 @@ class AdminController extends Controller
             }
 
             $data_plan->save();
+
+            $vtu_platform->purchaser_percentage = $request->discount;
+            $vtu_platform->upline_percentage = $request->upline_percentage;
+            $vtu_platform->upline_generations = $request->upline_generations;
+            $vtu_platform->save();
         }
 
         $response['success'] = true;
@@ -339,12 +537,17 @@ class AdminController extends Controller
                 $response['current_platform'] = $current_platform;
 
                 $data_plan = RouterPlan::where('network', $network)->get();
-                if ($data_plan->count() == 1) {
+                $vtu_plan = VtuPlatform::where('name', "{$network}_router")->first();
+                if ($data_plan->count() == 1 && !is_null($vtu_plan)) {
                     $data_plan = $data_plan[0];
                     $modify_prices_status = $request->has('temp') ? $request->modify_prices_status : $data_plan->modify_prices;
                     $price_alteration_option = $request->has('temp') ? $request->price_alteration_option : $data_plan->price_alteration_option;
                     $percentage = $request->has('temp') ? $request->percentage : $data_plan->percentage;
                     $added_amount = $request->has('temp') ? $request->added_amount : $data_plan->added_amount;
+
+                    $response['discount'] = $vtu_plan->purchaser_percentage;
+                    $response['upline_percentage'] = $vtu_plan->upline_percentage;
+                    $response['upline_generations'] = $vtu_plan->upline_generations;
 
                     $response['modify_prices_status'] = $modify_prices_status;
                     $response['price_alteration_option'] = $price_alteration_option;
@@ -386,6 +589,10 @@ class AdminController extends Controller
         $request->validate([
             'network' => ['required', Rule::in($this->tvs)],
             'platform' => ['required', Rule::in($this->cable_platforms[strtolower($request->network)])],
+            'discount' => 'required|numeric|max:100',
+            'upline_percentage' => 'required|numeric|max:100',
+            'upline_generations' => 'required|numeric|max:100',
+
             'modify_prices_status' => 'required|in:yes,no',
             'price_alteration_option' => 'required|in:percentage,direct',
             'percentage' => 'nullable|numeric|max:100',
@@ -397,8 +604,10 @@ class AdminController extends Controller
         $this->functions->setCurrentPlatform('cable', $request->network, $platform);
 
         $data_plan = CablePlan::where('network', $request->network)->get();
-        if ($data_plan->count() == 1) {
+        $vtu_platform = VtuPlatform::where('name', "{$request->network}_cable")->first();
+        if ($data_plan->count() == 1 && !is_null($vtu_platform)) {
             $data_plan = CablePlan::find($data_plan[0]->id);
+
 
 
 
@@ -446,6 +655,12 @@ class AdminController extends Controller
             }
 
             $data_plan->save();
+
+
+            $vtu_platform->purchaser_percentage = $request->discount;
+            $vtu_platform->upline_percentage = $request->upline_percentage;
+            $vtu_platform->upline_generations = $request->upline_generations;
+            $vtu_platform->save();
         }
 
         $response['success'] = true;
@@ -467,12 +682,18 @@ class AdminController extends Controller
                 $response['current_platform'] = $current_platform;
 
                 $data_plan = CablePlan::where('network', $network)->get();
-                if ($data_plan->count() == 1) {
+                $vtu_plan = VtuPlatform::where('name', "{$network}_cable")->first();
+                if ($data_plan->count() == 1 && !is_null($vtu_plan)) {
                     $data_plan = $data_plan[0];
                     $modify_prices_status = $request->has('temp') ? $request->modify_prices_status : $data_plan->modify_prices;
                     $price_alteration_option = $request->has('temp') ? $request->price_alteration_option : $data_plan->price_alteration_option;
                     $percentage = $request->has('temp') ? $request->percentage : $data_plan->percentage;
                     $added_amount = $request->has('temp') ? $request->added_amount : $data_plan->added_amount;
+
+                    $response['discount'] = $vtu_plan->purchaser_percentage;
+                    $response['upline_percentage'] = $vtu_plan->upline_percentage;
+                    $response['upline_generations'] = $vtu_plan->upline_generations;
+
 
                     $response['modify_prices_status'] = $modify_prices_status;
                     $response['price_alteration_option'] = $price_alteration_option;
@@ -562,13 +783,28 @@ class AdminController extends Controller
 
 
         $request->validate([
-            'platform' => ['required', Rule::in($this->electricity_platforms)],
+            'disco' => ['required', Rule::in($this->discos)],
+            'platform' => ['required', Rule::in($this->electricity_platforms[strtolower($request->disco)])],
+            'discount' => 'required|numeric|max:100',
+            'upline_percentage' => 'required|numeric|max:100',
+            'upline_generations' => 'required|numeric|max:100',
         ]);
 
         $platform = $request->platform;
 
-        $this->functions->setCurrentPlatform('', 'electricity', $platform);
-        $response['success'] = true;
+        $this->functions->setCurrentPlatform('electricity', $request->disco, $platform);
+        $vtu_platform = VtuPlatform::where('name', "{$request->disco}_electricity")->first();
+        if(!is_null($vtu_platform)){
+
+
+            $vtu_platform->purchaser_percentage = $request->discount;
+            $vtu_platform->upline_percentage = $request->upline_percentage;
+            $vtu_platform->upline_generations = $request->upline_generations;
+            $vtu_platform->save();
+
+            $response['success'] = true;
+        }
+
 
 
         return back()->with('data', $response);
@@ -578,15 +814,30 @@ class AdminController extends Controller
     {
         $response = ['success' => false, 'current_platform' => ''];
 
-        if ($request->has('platform')) {
+        $post_data = (Object) $request->input();
+        // return json_encode($post_data);
+        if ($request->has('disco') && $request->has('platform')) {
+            $disco = $request->disco;
             $platform = $request->platform;
 
-            if (in_array($platform, $this->electricity_platforms)) {
+            // return $disco;
 
-                $current_platform = $this->functions->getVtuPlatformToUse('', 'electricity');
+            if (in_array($disco, $this->discos) && in_array($platform, $this->electricity_platforms[$disco])) {
+
+                $current_platform = $this->functions->getVtuPlatformToUse('electricity', $disco);
                 $response['current_platform'] = $current_platform;
-                $response['success'] = true;
 
+
+                $vtu_plan = VtuPlatform::where('name', "{$disco}_electricity")->first();
+                if (!is_null($vtu_plan)) {
+
+
+                    $response['discount'] = $vtu_plan->purchaser_percentage;
+                    $response['upline_percentage'] = $vtu_plan->upline_percentage;
+                    $response['upline_generations'] = $vtu_plan->upline_generations;
+
+                    $response['success'] = true;
+                }
             }
         }
 
@@ -603,9 +854,9 @@ class AdminController extends Controller
             'network' => ['required', Rule::in($this->networks)],
             'platform' => ['required', Rule::in($this->airtime_platforms[strtolower($request->network)])],
             'discount' => 'nullable|numeric|max:100',
-            'purchaser_percentage' => 'nullable|numeric|max:100',
-            'upline_percentage' => 'nullable|numeric|max:100',
-            'upline_generations' => 'nullable|numeric|max:100',
+            // 'purchaser_percentage' => 'nullable|numeric|max:100',
+            'upline_percentage' => 'required|numeric|max:100',
+            'upline_generations' => 'required|numeric|max:100',
 
         ]);
 
@@ -626,7 +877,7 @@ class AdminController extends Controller
             $airtime_plan->discount = $request->discount;
             $airtime_plan->save();
 
-            $vtu_platform->purchaser_percentage = $request->purchaser_percentage;
+            // $vtu_platform->purchaser_percentage = $request->purchaser_percentage;
             $vtu_platform->upline_percentage = $request->upline_percentage;
             $vtu_platform->upline_generations = $request->upline_generations;
             $vtu_platform->save();
@@ -659,7 +910,7 @@ class AdminController extends Controller
 
                     $discount = $airtime_plan->discount;
 
-                    $response['purchaser_percentage'] = $vtu_plan->purchaser_percentage;
+                    // $response['purchaser_percentage'] = $vtu_plan->purchaser_percentage;
                     $response['upline_percentage'] = $vtu_plan->upline_percentage;
                     $response['upline_generations'] = $vtu_plan->upline_generations;
                     $response['discount'] = $discount;
@@ -682,6 +933,9 @@ class AdminController extends Controller
             'platform' => ['required', Rule::in($this->data_platforms[strtolower($request->network)])],
             'modify_prices_status' => 'required|in:yes,no',
             'price_alteration_option' => 'required|in:percentage,direct',
+            'discount' => 'required|numeric|max:100',
+            'upline_percentage' => 'required|numeric|max:100',
+            'upline_generations' => 'required|numeric|max:100',
             'percentage' => 'nullable|numeric|max:100',
             'added_amount' => 'nullable|numeric',
         ]);
@@ -691,7 +945,8 @@ class AdminController extends Controller
         $this->functions->setCurrentPlatform('data', $request->network, $platform);
 
         $data_plan = DataPlan::where('network', $request->network)->get();
-        if ($data_plan->count() == 1) {
+        $vtu_platform = VtuPlatform::where('name', "{$request->network}_data")->first();
+        if ($data_plan->count() == 1 && !is_null($vtu_platform)) {
             $data_plan = DataPlan::find($data_plan[0]->id);
 
 
@@ -743,6 +998,11 @@ class AdminController extends Controller
             $data_plan->save();
         }
 
+
+        $vtu_platform->purchaser_percentage = $request->discount;
+        $vtu_platform->upline_percentage = $request->upline_percentage;
+        $vtu_platform->upline_generations = $request->upline_generations;
+        $vtu_platform->save();
         $response['success'] = true;
 
         return back()->with('data', $response);
@@ -767,7 +1027,8 @@ class AdminController extends Controller
                 }
 
                 $data_plan = DataPlan::where('network', $network)->get();
-                if($data_plan->count() == 1){
+                $vtu_plan = VtuPlatform::where('name', "{$network}_data")->first();
+                if($data_plan->count() == 1 && !is_null($vtu_plan)){
                     $data_plan = $data_plan[0];
                     $modify_prices_status = $request->has('temp') ? $request->modify_prices_status : $data_plan->modify_prices;
                     $price_alteration_option = $request->has('temp') ? $request->price_alteration_option : $data_plan->price_alteration_option;
@@ -778,6 +1039,11 @@ class AdminController extends Controller
                     $response['price_alteration_option'] = $price_alteration_option;
                     $response['percentage'] = $percentage;
                     $response['added_amount'] = $added_amount;
+
+                    $response['discount'] = $vtu_plan->purchaser_percentage;
+                    $response['upline_percentage'] = $vtu_plan->upline_percentage;
+                    $response['upline_generations'] = $vtu_plan->upline_generations;
+
 
                     if($modify_prices_status == "yes"){
                         //Get plans for this particular platform with old price and new price depending on price alteration option

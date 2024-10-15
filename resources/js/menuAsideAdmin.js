@@ -134,7 +134,7 @@ export default [
         route: "view_members_list",
         label: "Members List",
       },
-      
+
     ],
   },
   {
@@ -150,6 +150,10 @@ export default [
       //   label: "Data Combo Requests",
       // },
       {
+        route: "vtu_accounting",
+        label: "VTU Accounting",
+      },
+      {
         route: "account_credit_history",
         label: "Account Credit Hist.",
       },
@@ -161,7 +165,7 @@ export default [
         route: "account_debit_history",
         label: "Admin Acct Debit Hist.",
       },
-      
+
 
     ],
   },

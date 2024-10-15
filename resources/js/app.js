@@ -8,6 +8,8 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers'
 import { ZiggyVue } from '../../vendor/tightenco/ziggy/dist/vue.m'
 import swal from 'sweetalert2';
 
+import axios from 'axios';
+window.axios = axios;
 /* import the fontawesome core */
 import { library } from '@fortawesome/fontawesome-svg-core'
 
@@ -25,7 +27,7 @@ library.add(faUserSecret, faFloppyDisk, faDollarSign, faNairaSign, faMoneyBill1W
 
 window.Swal = swal;
 
-const appName = window.document.getElementsByTagName('title')[0]?.innerText || 'Cosrosmos'
+const appName = window.document.getElementsByTagName('title')[0]?.innerText || 'KetexPay'
 
 const pinia = createPinia()
 
@@ -37,7 +39,7 @@ createInertiaApp({
     return createApp({ render: () => h(App, props) })
       .use(plugin)
       .use(pinia)
-      
+
       .use(ZiggyVue, Ziggy)
       .component('font-awesome-icon', FontAwesomeIcon)
       .mount(el)

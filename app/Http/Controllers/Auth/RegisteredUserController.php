@@ -32,7 +32,7 @@ class RegisteredUserController extends Controller
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, $seeder = false): RedirectResponse
     {
         $request->validate([
             'user_name' => ['required', 'alpha_dash', 'max:60', 'unique:' . User::class],
@@ -59,7 +59,9 @@ class RegisteredUserController extends Controller
         $user->last_activity = $now;
         $user->save();
 
-        event(new Registered($user));
+        if(!$seeder){
+            event(new Registered($user));
+        }
 
         Auth::login($user);
 

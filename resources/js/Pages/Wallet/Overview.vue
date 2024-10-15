@@ -52,7 +52,7 @@ import FlashMessages from "@/Components/FlashMessages.vue";
 const props = defineProps({
   user: {
     type: Object,
-    
+
   },
   credit: {
     type: Boolean,
@@ -66,7 +66,7 @@ const props = defineProps({
     type: Array,
     default: []
   },
-  
+
   PUBLIC_KEY: {
     type: String,
   },
@@ -81,14 +81,14 @@ const props = defineProps({
   withdrawal_charge: {
     default: 0
   },
-  
+
   prev_selec_bank_index: {
     default: null
   },
   min_withd_amt_naira: {
     default: 200.00
   },
-  
+
 })
 const page = usePage()
 
@@ -153,19 +153,19 @@ const paystack_url = ref("");
 
 
 
- 
+
 
 const form = useForm({
-  
+
 })
 
 const exhange_rate_form = useForm({
-  
+
 })
 
 const statement_details_form = useForm({
   id: null,
-  
+
 });
 
 const transfer_to_other_acct_form = useForm({
@@ -184,7 +184,7 @@ const transfer_to_other_user_form = useForm({
 });
 
 const credit_account_form = useForm({
-  amount: null  
+  amount: null
 })
 
 const withdrawal_form = useForm({
@@ -194,7 +194,7 @@ const withdrawal_form = useForm({
   bank_name: props.prev_selec_bank_index != null ? props.banks_arr.obj[props.prev_selec_bank_index] : null,
   account_number: props.user.account_number,
   account_name: '',
-  
+
   passw: null,
   passw_confirmation: null
 })
@@ -224,14 +224,14 @@ const transferBtn = (account_type) => {
     denyButtonColor: '#059669',
     confirmButtonText: 'Your ' + opposite + ' account',
     denyButtonText: "Another user"
-    
+
   }).then((result) => {
     if (result.isConfirmed) {
       transferToOppositeAccount(account_type, opposite)
     }else if (result.isDenied) {
       current_account.value = account_type;
       showEnterUsernameForTransModal.value = true;
-      
+
     }
   });
 };
@@ -268,11 +268,11 @@ const getCurrentExchangeRate = () => {
         }else {
           getCurrentExchangeRate();
         }
-          
+
       }, onError: (errors) => {
         getCurrentExchangeRate();
       },
-      
+
     });
   }
 }
@@ -296,7 +296,7 @@ const submitTransferToOtherAcctForm = () => {
     cancelButtonColor: '#d33',
     confirmButtonText: 'Yes Proceed!',
     cancelButtonText: "No Cancel"
-    
+
   }).then((result) => {
     if (result.isConfirmed) {
       if(!transfer_to_other_acct_form.processing){
@@ -311,7 +311,7 @@ const submitTransferToOtherAcctForm = () => {
                 title: 'Transfer Successful',
                 html: `You have successfully transferred ${from_currency}${mainStore.addCommas(transfer_to_other_acct_form.amount)} from your ${transfer_to_other_acct_form.from_account} account to your ${transfer_to_other_acct_form.to_account} account.`,
                 icon: 'success',
-                
+
                 allowEscapeKey: false,
                 allowOutsideClick: false,
               }).then((result) => {
@@ -326,7 +326,7 @@ const submitTransferToOtherAcctForm = () => {
                 icon: 'error',
               });
             }
-              
+
           }, onError: (errors) => {
             // Swal.fire({
             //   title: 'Ooops!',
@@ -334,7 +334,7 @@ const submitTransferToOtherAcctForm = () => {
             //   icon: 'error',
             // });
           },
-          
+
         });
       }
     }
@@ -342,12 +342,12 @@ const submitTransferToOtherAcctForm = () => {
 }
 
 const calcTransOtherAcctCred = () => {
-  
+
   var amount = transfer_to_other_acct_form.amount;
   var rate = exchange_rate.value;
   var from = from_account.value;
   var to = to_account.value;
-  
+
 
   if(amount == null || amount == ""){
     credited_text.value = "";
@@ -402,7 +402,7 @@ const showStatementDetail = (record_id) => {
             icon: 'error',
           });
         }
-          
+
       }, onError: (errors) => {
         Swal.fire({
           title: 'Ooops!',
@@ -412,9 +412,9 @@ const showStatementDetail = (record_id) => {
       },
     });
   }
-  
 
-  
+
+
 
 };
 
@@ -437,7 +437,7 @@ const submitTransferToOtherUserForm = () => {
   //   cancelButtonColor: '#d33',
   //   confirmButtonText: 'Yes Proceed!',
   //   cancelButtonText: "No Cancel"
-    
+
   // }).then((result) => {
   //   if (result.isConfirmed) {
       if(!transfer_to_other_user_form.processing){
@@ -456,15 +456,15 @@ const submitTransferToOtherUserForm = () => {
                 icon: 'warning',
                 html: `<div class='grid grid-cols-12 gap-6'>
 
-                  <h5 class='col-span-6 text-lg'>User Name: </h5> 
-                    <h6 class='col-span-6 italic text-sm font-bold text-primary-100 capitalize'>${user_details.user_name}</h6> 
-                    
-                    <h5 class='col-span-6 text-lg'>Full Name: </h5> 
-                    <h6 class='col-span-6 italic text-sm font-bold text-primary-100 capitalize'>${user_details.name}</h6> 
+                  <h5 class='col-span-6 text-lg'>User Name: </h5>
+                    <h6 class='col-span-6 italic text-sm font-bold text-primary-100 capitalize'>${user_details.user_name}</h6>
+
+                    <h5 class='col-span-6 text-lg'>Full Name: </h5>
+                    <h6 class='col-span-6 italic text-sm font-bold text-primary-100 capitalize'>${user_details.name}</h6>
 
                     <h5 class='col-span-6 text-lg'>Email Address: </h5>
-                    <h6 class='col-span-6 italic text-sm font-bold text-primary-100 lowercase'>${user_details.email}</h6> 
-                    
+                    <h6 class='col-span-6 italic text-sm font-bold text-primary-100 lowercase'>${user_details.email}</h6>
+
                   </div>`,
                 showCancelButton: true,
                 confirmButtonText: 'Yes Proceed!',
@@ -493,7 +493,7 @@ const submitTransferToOtherUserForm = () => {
                 html: "Sorry You Do Not Have Enough Funds For The Amount You Want To Transfer. Credit Your Account And Try Again",
                 icon: 'error'
               });
-            } 
+            }
             else if (response.recepient_does_not_exist) {
               Swal.fire({
                 title: 'Ooops!',
@@ -513,7 +513,7 @@ const submitTransferToOtherUserForm = () => {
                 icon: 'error',
               });
             }
-              
+
           }, onError: (errors) => {
             var size = Object.keys(errors).length;
             Swal.fire({
@@ -522,11 +522,11 @@ const submitTransferToOtherUserForm = () => {
               text: `There are ${size} form errors. Please fix them`,
             })
           },
-          
+
         });
       }
 
-      
+
   //   }
   // });
 }
@@ -541,7 +541,7 @@ const submitEnterPasswordTransferForm = () => {
         console.log(response)
 
         if (response.success) {
-        
+
 
           Swal.fire({
             title: 'Success',
@@ -549,10 +549,10 @@ const submitEnterPasswordTransferForm = () => {
             html: `You Have Successfully Transferred <em class='text-primary-200'>${transfer_to_other_user_form.from_currency}${mainStore.addCommas(transfer_to_other_user_form.amount)} </em> to <em class='text-primary-200'> ${recepient_details.value.name} </em>`,
             allowEscapeKey: false,
             allowOutsideClick: false,
-            
+
           }).then((result) => {
             document.location.reload()
-            
+
           });
 
         } else if (response.not_bouyant) {
@@ -611,33 +611,33 @@ const creditAccount = (account_type) => {
     current_currency_credit.value = "₦";
   }
 
-  
-  
 
-  // Swal.fire({
-  //   title: 'Choose Action',
-  //   html: `Choose credit method`,
-  //   icon: 'question',
-  //   showCancelButton: false,
-  //   showDenyButton: true,
-  //   confirmButtonColor: '#3085d6',
-  //   denyButtonColor: '#059669',
-  //   confirmButtonText: 'Customized payment account',
-  //   denyButtonText: "Online payment"
-    
-  // }).then((result) => {
-  //   if (result.isConfirmed) {
+
+
+  Swal.fire({
+    title: 'Choose Action',
+    html: `Choose credit method`,
+    icon: 'question',
+    showCancelButton: false,
+    showDenyButton: true,
+    confirmButtonColor: '#3085d6',
+    denyButtonColor: '#059669',
+    confirmButtonText: 'Customized payment account',
+    denyButtonText: "Online payment"
+
+  }).then((result) => {
+    if (result.isConfirmed) {
       showProvidusDetailsModal.value = true
-  //   }else if (result.isDenied) {
-  //     showEnterAmtForCreditModal.value = true
-  //   }
-  // });
+    }else if (result.isDenied) {
+      showEnterAmtForCreditModal.value = true
+    }
+  });
 }
 
 const submitEnterAmtToCreditForm = () => {
-  
+
   // showChoosePaymentOptionModal.value = true;
-  
+
 
  if(current_account_credit.value == "dollar"){
   showEnterAmtForCreditModal.value = false;
@@ -653,9 +653,9 @@ const submitEnterAmtToCreditForm = () => {
       </div>`,
     icon: 'success',
     confirmButtonText: 'Copy',
-    
+
   }).then((result) => {
-    
+
     navigator.clipboard.writeText(props.user.blockbee_address);
     // usePage().props.flash.success = "Link copied succcesfully"
   });
@@ -669,9 +669,9 @@ const submitEnterAmtToCreditForm = () => {
     allowOutsideClick: false,
   });
 
-  
+
   getPaystackPaymentURL();
-    
+
  }
 }
 
@@ -695,7 +695,7 @@ const getPaystackPaymentURL = () => {
             icon: 'error',
           });
         }
-          
+
       }, onError: (errors) => {
         Swal.close();
         var size = Object.keys(errors).length;
@@ -705,7 +705,7 @@ const getPaystackPaymentURL = () => {
           text: `There are ${size} form errors. Please fix them`,
         })
       },
-      
+
     });
 
   }
@@ -731,13 +731,13 @@ if (props.paystack_payment_made) {
 
 const withdrawBtn = (account_type) => {
   console.log(account_type)
-  
+
   if(account_type == "naira"){
     withdrawal_form.account_symbol = '₦';
     withdrawal_form.account_type = account_type;
     showWithdrawFundsModal.value = true;
   }else{
-    
+
     dollar_withdrawal_form.account_symbol = '$';
     dollar_withdrawal_form.account_type = account_type;
     showWithdrawFundsDollarModal.value = true;
@@ -768,10 +768,10 @@ const submitBankDetailsForm = () => {
           }).then((result) => {
             /* Read more about isConfirmed, isDenied below */
             if (result.isConfirmed) {
-              
+
               showWithdrawFundsModal.value = false
               showEnterWithdrawalAmtFormModal.value = true
-                
+
             }
           });
 
@@ -814,7 +814,7 @@ const submitEnterAmountWithdrawalNairaForm = () => {
         console.log(response)
 
         if (response.success && response.code != "" && response.phone_number != "") {
-          
+
 
           Swal.fire({
             title: 'Proceed With Withdrawal?',
@@ -826,7 +826,7 @@ const submitEnterAmountWithdrawalNairaForm = () => {
             /* Read more about isConfirmed, isDenied below */
             if (result.isConfirmed) {
 
-              
+
               showEnterWithdrawalAmtFormModal.value = false
               showEnterPasswordWithdNairaModal.value = true
             }
@@ -851,7 +851,7 @@ const submitEnterAmountWithdrawalNairaForm = () => {
         else if (response.too_small) {
           Swal.fire({
             title: 'Ooops!',
-            
+
             text: `Minimum Withdrawable Amount Is ₦${mainStore.addCommas(props.min_withd_amt_naira)}`,
             icon: 'error'
           });
@@ -951,7 +951,7 @@ const submitCryptoDetailsForm = () => {
         console.log(response)
 
         if (response.success) {
-          
+
 
           Swal.fire({
             title: 'Proceed With Withdrawal?',
@@ -962,14 +962,14 @@ const submitCryptoDetailsForm = () => {
           }).then((result) => {
             /* Read more about isConfirmed, isDenied below */
             if (result.isConfirmed) {
-              
+
               showWithdrawFundsDollarModal.value = false
               showEnterWithdrawalAmtDollarFormModal.value = true
-                
+
             }
           });
 
-        } 
+        }
         else {
           Swal.fire({
             title: 'Ooops!',
@@ -1003,7 +1003,7 @@ const submitEnterAmountWithdrawalDollarForm = () => {
         console.log(response)
 
         if (response.success && response.code != "" && response.phone_number != "") {
-          
+
 
           Swal.fire({
             title: 'Proceed With Withdrawal?',
@@ -1015,7 +1015,7 @@ const submitEnterAmountWithdrawalDollarForm = () => {
             /* Read more about isConfirmed, isDenied below */
             if (result.isConfirmed) {
 
-              
+
               showEnterWithdrawalAmtDollarFormModal.value = false
               showEnterPasswordWithdDollarModal.value = true
             }
@@ -1040,7 +1040,7 @@ const submitEnterAmountWithdrawalDollarForm = () => {
         else if (response.too_small) {
           Swal.fire({
             title: 'Ooops!',
-            
+
             text: `Minimum Withdrawable Amount Is $${mainStore.addCommas(props.min_withd_amt_dollar)}`,
             icon: 'error'
           });
@@ -1159,7 +1159,7 @@ const moreOptions = (account_type) => {
       <CardBox class="w-full md:w-3/4 md:mx-auto mt-[40px]">
         <!-- <div class="grid grid-cols-12 gap-6">
           <div @click="tab_open = 1" :class="tab_open == 1 ? 'bg-gray-100' : ''" class="col-span-6 text-center  py-2 pt-4 px-3 rounded-md cursor-pointer transition ease-linear duration-300">
-            
+
             <h4 class="dark:text-slate-600 text-4xl">Dollar</h4>
             <p class="dark:text-slate-600 mt-3 text-lg font-bold">Wallet</p>
             <div v-show="tab_open == 1" class="transition ease-linear duration-300 h-[5px] bg-primary-200 rounded-full w-full my-2 mt-4"></div>
@@ -1181,7 +1181,7 @@ const moreOptions = (account_type) => {
 
           <h4 class="text-5xl font-bold mx-2 mt-1 mb-3" v-html="`$${mainStore.addCommas(user.dollar_wallet_balance)}`"></h4>
 
-          
+
 
           <BaseButtons class="my-7">
             <BaseButton
@@ -1213,7 +1213,7 @@ const moreOptions = (account_type) => {
               :disabled="false"
               :rounded-full="true"
             />
-            
+
 
             <BaseButton
               :href="route('wallet.statement') + '?length=10&type=dollar&isDirty=1&__rememberable=1'"
@@ -1235,12 +1235,12 @@ const moreOptions = (account_type) => {
               :disabled="false"
               :rounded-full="true"
             />
-            
-            
+
+
           </BaseButtons>
 
           <BaseDivider />
-          
+
           <div class=" my-4">
             <ul v-if="dollar_statement.length > 0" class="divide-y divide-gray-200">
               <li @click="showStatementDetail(record.id)" class="grid grid-cols-12 gap-6 py-2 cursor-pointer" v-for="(record, index) in dollar_statement" :key="index" >

@@ -66,6 +66,9 @@ const props = defineProps({
   data_platforms: {
     type: Object,
   },
+  discos: {
+    type: Array,
+  },
   electricity_platforms: {
     type: Object,
   },
@@ -89,12 +92,14 @@ const btn_hovered = ref(false);
 const current_page = ref(1);
 const useSearchBtn = mainStore.useSearchBtn;
 const vtu_history = ref([]);
+const vtu_services_details = ref([]);
 const selected_airtime_network = ref(props.networks[0]);
 const airtimePlansOptions = ref(props.airtime_platforms);
 
 const current_airtime_plans_options = ref([]);
 const selected_data_network = ref(props.networks[0]);
 const selected_cable_network = ref(props.tvs[0]);
+const selected_electricity_disco = ref(props.discos[0]);
 const selected_router_network = ref(props.routers[0]);
 const selected_educational_network = ref(props.educationals[0]);
 const data_network_details = ref({});
@@ -107,11 +112,13 @@ const educational_network_details = ref({});
 const electricity_details = ref({});
 const dataPlansOptions = ref(props.data_platforms);
 const cablePlansOptions = ref(props.cable_platforms);
+const electricityOptions = ref(props.electricity_platforms);
 const routerPlansOptions = ref(props.router_platforms);
 const educationalPlansOptions = ref(props.educational_platforms);
 const current_data_plans_options = ref([]);
 const current_cable_plans_options = ref([]);
 const current_router_plans_options = ref([]);
+const current_electricity_plans_options = ref([]);
 const current_educational_plans_options = ref([]);
 const priceAlterationOptions = ref({ percentage: 'percentage', direct: 'direct' });
 // const yesOrNoOptions = ref({ yes: 'Yes', no: 'No' });
@@ -131,7 +138,7 @@ const airtime_settings_form = useForm({
   'platform': props.airtime_platforms[props.networks[0]][Object.keys(props.airtime_platforms[props.networks[0]])[0]],
   'network': props.networks[0],
   'discount': 0.00,
-  'purchaser_percentage': 0.00,
+//   'purchaser_percentage': 0.00,
   'upline_percentage': 0.00,
   'upline_generations': 0,
 
@@ -140,6 +147,10 @@ const airtime_settings_form = useForm({
 const data_settings_form = useForm({
   'platform': props.data_platforms[props.networks[0]][Object.keys(props.data_platforms[props.networks[0]])[0]],
   'network': props.networks[0],
+  'discount': 0.00,
+//   'purchaser_percentage': 0.00,
+  'upline_percentage': 0.00,
+  'upline_generations': 0,
   'modify_prices_status': yesOrNoOptions.value.no,
   'price_alteration_option': priceAlterationOptions.value.percentage,
   'percentage': null,
@@ -149,7 +160,11 @@ const data_settings_form = useForm({
 
 const electricity_settings_form = useForm({
   'platform': props.electricity_platforms[Object.keys(props.electricity_platforms)[0]],
-
+  'disco': props.discos[0],
+  'discount': 0.00,
+//   'purchaser_percentage': 0.00,
+  'upline_percentage': 0.00,
+  'upline_generations': 0,
 })
 
 
@@ -157,6 +172,10 @@ console.log()
 const cable_settings_form = useForm({
   'platform': props.cable_platforms[props.tvs[0]][Object.keys(props.cable_platforms[props.tvs[0]])[0]],
   'network': props.tvs[0],
+  'discount': 0.00,
+    //   'purchaser_percentage': 0.00,
+  'upline_percentage': 0.00,
+  'upline_generations': 0,
   'modify_prices_status': yesOrNoOptions.value.no,
   'price_alteration_option': priceAlterationOptions.value.percentage,
   'percentage': null,
@@ -167,6 +186,10 @@ const cable_settings_form = useForm({
 const router_settings_form = useForm({
   'platform': props.cable_platforms[props.tvs[0]][Object.keys(props.cable_platforms[props.tvs[0]])[0]],
   'network': props.routers[0],
+  'discount': 0.00,
+    //   'purchaser_percentage': 0.00,
+  'upline_percentage': 0.00,
+  'upline_generations': 0,
   'modify_prices_status': yesOrNoOptions.value.no,
   'price_alteration_option': priceAlterationOptions.value.percentage,
   'percentage': null,
@@ -177,6 +200,10 @@ const router_settings_form = useForm({
 const educational_settings_form = useForm({
   'platform': props.educational_platforms[props.educationals[0]][Object.keys(props.educational_platforms[props.educationals[0]])[0]],
   'network': props.educationals[0],
+  'discount': 0.00,
+    //   'purchaser_percentage': 0.00,
+  'upline_percentage': 0.00,
+  'upline_generations': 0,
   'modify_prices_status': yesOrNoOptions.value.no,
   'price_alteration_option': priceAlterationOptions.value.percentage,
   'percentage': null,
@@ -322,6 +349,10 @@ const loadDataPlanDetails = async (temp = false, platform_changed = false) => {
           return;
         }
       }
+
+      data_settings_form.discount = data_network_details.value.discount;
+      data_settings_form.upline_percentage = data_network_details.value.upline_percentage;
+      data_settings_form.upline_generations = data_network_details.value.upline_generations;
 
       data_settings_form.modify_prices_status = data_network_details.value.modify_prices_status;
       data_settings_form.price_alteration_option = data_network_details.value.price_alteration_option;
@@ -506,7 +537,7 @@ const loadAirtimePlanDetails = async (temp = false) => {
 
 
       airtime_settings_form.discount = airtime_network_details.value.discount;
-      airtime_settings_form.purchaser_percentage = airtime_network_details.value.purchaser_percentage;
+    //   airtime_settings_form.purchaser_percentage = airtime_network_details.value.purchaser_percentage;
       airtime_settings_form.upline_percentage = airtime_network_details.value.upline_percentage;
       airtime_settings_form.upline_generations = airtime_network_details.value.upline_generations;
 
@@ -617,69 +648,6 @@ const submitAirtimeSettingsForm = () => {
   });
 }
 
-const manageElectricitySettings = async () => {
-  try {
-
-
-    Swal.fire({
-      title: 'Please wait',
-      html: `<span class='capitalize'>Loading .....</span>`,
-      icon: 'info',
-      showConfirmButton: false,
-      allowEscapeKey: false,
-      allowOutsideClick: false,
-    });
-
-    let queryRoute = route('load_electricity_details_admin');
-
-    const response = await axios.post(queryRoute, electricity_settings_form);
-
-    console.log(response)
-    Swal.close()
-    if (response.data.success) {
-
-      electricity_details.value = response.data;
-      electricity_settings_form.platform = electricity_details.value.current_platform;
-
-      openPage(7);
-    } else {
-      Swal.fire({
-        title: 'Ooops!',
-        html: 'Something went wrong',
-        icon: 'error',
-
-
-      });
-    }
-
-
-  } catch (error) {
-
-    Swal.close()
-    console.log(error);
-
-    if (error.response) {
-      // Request made but the server responded with an error
-      var status = error.response.status;
-      if (status == 419) {
-        document.location.reload()
-      }
-
-    } else if (error.request) {
-      // Request made but no response is received from the server.
-    } else {
-      // Error occured while setting up the request
-    }
-
-    Swal.fire({
-      title: 'Ooops!',
-      html: 'Something went wrong',
-      icon: 'error',
-
-
-    });
-  }
-}
 
 const submitElectricitySettingsForm = () => {
   Swal.fire({
@@ -872,6 +840,11 @@ const loadCablePlanDetails = async (temp = false, platform_changed = false) => {
           return;
         }
       }
+
+      cable_settings_form.discount = cable_network_details.value.discount;
+    //   cable_settings_form.purchaser_percentage = cable_network_details.value.purchaser_percentage;
+      cable_settings_form.upline_percentage = cable_network_details.value.upline_percentage;
+      cable_settings_form.upline_generations = cable_network_details.value.upline_generations;
 
       cable_settings_form.modify_prices_status = cable_network_details.value.modify_prices_status;
       cable_settings_form.price_alteration_option = cable_network_details.value.price_alteration_option;
@@ -1070,6 +1043,12 @@ const loadRouterPlanDetails = async (temp = false, platform_changed = false) => 
           return;
         }
       }
+
+      router_settings_form.discount = router_network_details.value.discount;
+    //   router_settings_form.purchaser_percentage = router_network_details.value.purchaser_percentage;
+      router_settings_form.upline_percentage = router_network_details.value.upline_percentage;
+      router_settings_form.upline_generations = router_network_details.value.upline_generations;
+
 
       router_settings_form.modify_prices_status = router_network_details.value.modify_prices_status;
       router_settings_form.price_alteration_option = router_network_details.value.price_alteration_option;
@@ -1274,6 +1253,12 @@ const loadEducationalPlanDetails = async (temp = false, platform_changed = false
         }
       }
 
+
+      educational_settings_form.discount = educational_network_details.value.discount;
+    //   educational_settings_form.purchaser_percentage = educational_network_details.value.purchaser_percentage;
+      educational_settings_form.upline_percentage = educational_network_details.value.upline_percentage;
+      educational_settings_form.upline_generations = educational_network_details.value.upline_generations;
+
       educational_settings_form.modify_prices_status = educational_network_details.value.modify_prices_status;
       educational_settings_form.price_alteration_option = educational_network_details.value.price_alteration_option;
       educational_settings_form.percentage = educational_network_details.value.percentage;
@@ -1405,6 +1390,254 @@ const submitEducationalSettingsForm = () => {
     }
   });
 }
+
+const manageElectricityOption = (index) => {
+  electricity_settings_form.platform = props.electricity_platforms[props.discos[index]][Object.keys(props.electricity_platforms[props.discos[index]])[0]];
+  selected_electricity_disco.value = index;
+  loadElectricityPlanDetails();
+}
+
+const manageElectricitySettings =  () => {
+  openPage(16);
+
+  // try {
+
+
+  //   Swal.fire({
+  //     title: 'Please wait',
+  //     html: `<span class='capitalize'>Loading .....</span>`,
+  //     icon: 'info',
+  //     showConfirmButton: false,
+  //     allowEscapeKey: false,
+  //     allowOutsideClick: false,
+  //   });
+
+  //   let queryRoute = route('load_electricity_details_admin');
+
+  //   const response = await axios.post(queryRoute, electricity_settings_form);
+
+  //   console.log(response)
+  //   Swal.close()
+  //   if (response.data.success) {
+
+  //     electricity_details.value = response.data;
+  //     electricity_settings_form.platform = electricity_details.value.current_platform;
+
+  //     electricity_settings_form.discount = electricity_details.value.discount;
+  //   //   airtime_settings_form.purchaser_percentage = airtime_network_details.value.purchaser_percentage;
+  //     electricity_settings_form.upline_percentage = electricity_details.value.upline_percentage;
+  //     electricity_settings_form.upline_generations = electricity_details.value.upline_generations;
+
+  //     openPage(7);
+  //   } else {
+  //     Swal.fire({
+  //       title: 'Ooops!',
+  //       html: 'Something went wrong',
+  //       icon: 'error',
+
+
+  //     });
+  //   }
+
+
+  // } catch (error) {
+
+  //   Swal.close()
+  //   console.log(error);
+
+  //   if (error.response) {
+  //     // Request made but the server responded with an error
+  //     var status = error.response.status;
+  //     if (status == 419) {
+  //       document.location.reload()
+  //     }
+
+  //   } else if (error.request) {
+  //     // Request made but no response is received from the server.
+  //   } else {
+  //     // Error occured while setting up the request
+  //   }
+
+  //   Swal.fire({
+  //     title: 'Ooops!',
+  //     html: 'Something went wrong',
+  //     icon: 'error',
+
+
+  //   });
+  // }
+}
+
+
+const loadElectricityPlanDetails = async (temp = false, platform_changed = false) => {
+  // console.log(platform_changed)
+  // console.log(router_settings_form.platform)
+  try {
+    delete electricity_settings_form.temp;
+    var disco = props.discos[selected_electricity_disco.value];
+    // console.log(disco)
+    electricity_settings_form.disco = disco;
+    current_electricity_plans_options.value = electricityOptions.value[electricity_settings_form.disco];
+    Swal.fire({
+      title: 'Please wait',
+      html: `<span class='capitalize'>Loading .....</span>`,
+      icon: 'info',
+      showConfirmButton: false,
+      allowEscapeKey: false,
+      allowOutsideClick: false,
+    });
+
+    let queryRoute = route('load_electricity_details_admin');
+
+    var params = electricity_settings_form;
+
+
+    if (temp) {
+      params.temp = true;
+    }else{
+      clearElectricitySettingsForm();
+    }
+
+
+    if (platform_changed) {
+      params.platform_changed = true;
+    }
+
+    const response = await axios.post(queryRoute, params);
+
+    console.log(response)
+    Swal.close()
+
+    // tests.value = response.data;
+    if (response.data.success) {
+
+      electricity_details.value = response.data;
+
+      //data_settings_form.platform = dataPlansOptions.value[network][data_network_details.value.current_platform];
+      if (!temp) {
+        electricity_settings_form.platform = electricity_details.value.current_platform;
+      }
+
+
+      electricity_settings_form.discount = electricity_details.value.discount;
+    //   electricity_settings_form.purchaser_percentage = electricity_details.value.purchaser_percentage;
+      electricity_settings_form.upline_percentage = electricity_details.value.upline_percentage;
+      electricity_settings_form.upline_generations = electricity_details.value.upline_generations;
+
+      // console.log(electricity_settings_form.platform)
+      // console.log(dataPlansOptions.value[network])
+      openPage(7);
+    } else {
+      Swal.fire({
+        title: 'Ooops!',
+        html: 'Something went wrong',
+        icon: 'error',
+
+
+      });
+    }
+
+
+
+  } catch (error) {
+
+    Swal.close()
+    console.log(error);
+
+    if (error.response) {
+      // Request made but the server responded with an error
+      var status = error.response.status;
+      if (status == 419) {
+        document.location.reload()
+      }
+
+    } else if (error.request) {
+      // Request made but no response is received from the server.
+    } else {
+      // Error occured while setting up the request
+    }
+
+    Swal.fire({
+      title: 'Ooops!',
+      html: 'Something went wrong',
+      icon: 'error',
+
+
+    });
+  }
+
+};
+
+const clearElectricitySettingsForm = () => {
+
+
+}
+
+const manageVtuServices = async () => {
+  try {
+
+    Swal.fire({
+      title: 'Please wait',
+      html: `<span class='capitalize'>Loading Details.....</span>`,
+      icon: 'info',
+      showConfirmButton: false,
+      allowEscapeKey: false,
+      allowOutsideClick: false,
+    });
+
+    let queryRoute = route('load_vtu_services_detais');
+
+    var params = {show_records: true};
+
+    var response = await axios.post(queryRoute, params);
+
+    console.log(response)
+    response = response.data;
+    Swal.close()
+
+    if (response.success && response.details != []) {
+
+      vtu_services_details.value = response.details;
+      openPage(17);
+    } else {
+      Swal.fire({
+        title: 'Ooops!',
+        html: 'Something went wrong',
+        icon: 'error',
+
+
+      });
+    }
+
+
+
+  } catch (error) {
+
+    Swal.close()
+    console.log(error);
+
+    if (error.response) {
+      // Request made but the server responded with an error
+      var status = error.response.status;
+      if (status == 419) {
+        document.location.reload()
+      }
+
+    } else if (error.request) {
+      // Request made but no response is received from the server.
+    } else {
+      // Error occured while setting up the request
+    }
+
+    Swal.fire({
+      title: 'Ooops!',
+      html: 'Something went wrong',
+      icon: 'error',
+
+
+    });
+  }
+};
 </script>
 
 <template inheritAttrs="false">
@@ -1420,6 +1653,80 @@ const submitEducationalSettingsForm = () => {
         <b>Responsive table.</b> Collapses on mobile
       </NotificationBar> -->
 
+      <div v-if="current_page == 17" class="mt-[30px]">
+        <CardBox class="mb-6">
+          <h2 class="text-2xl font-semibold">Manage vtu services</h2>
+
+          <div v-if="vtu_services_details.length" class="grid grid-cols-12 gap-6 mx-2 my-6 mt-[40px]">
+
+            <CardBox v-for="(vtu, index) in vtu_services_details" class="col-span-4 border border-slate-500" :key="index">
+              <h4 class="text-2xl font-bold capitalize mb-2">{{ vtu.name }}</h4>
+              <h5 class="font-semibold text-lg mb-6 text-gray-500">Wallet Balance: <span>{{ mainStore.addCommas(parseFloat(vtu.balance).toFixed(2)) }}</span></h5>
+
+              <Link :href="vtu.fund_link" target="_blank" class="text-primary text-sm underline">Fund Wallet</Link>
+            </CardBox>
+
+          </div>
+        </CardBox>
+      </div>
+
+      <div v-if="current_page == 7" class="mt-[30px]">
+        <CardBox class="mb-6" @submit.prevent="submitElectricitySettingsForm" isForm>
+          <h2 class="text-2xl font-semibold capitalize" v-html="`Manage ${electricity_settings_form.disco} disco electricity`">
+          </h2>
+
+          <div class="sm:grid sm:grid-cols-12 sm:gap-6 mt-[50px]">
+            <FormField class="w-full sm:col-span-12 my-2" label="Select Platform" wrap-body>
+              <FormCheckRadioGroup v-model="electricity_settings_form.platform"
+                :error="electricity_settings_form.errors.platform" name="platform" :options="current_electricity_plans_options"
+                type="radio" />
+
+                <FormCheckRadioGroup @change="loadElectricityPlanDetails(true, true)" v-model="electricity_settings_form.platform"
+                :error="electricity_settings_form.errors.platform" name="platform" :options="current_router_plans_options"
+                type="radio" />
+
+
+            </FormField>
+
+            <FormField class="sm:col-span-4" label="Discount">
+              <FormControl v-model="electricity_settings_form.discount" :error="electricity_settings_form.errors.discount"
+                type="number" />
+            </FormField>
+
+            <!-- <h4 class="font-bold my-3 mb-2 text-xl col-span-12">Upline earnings</h4> -->
+
+            <FormField class="sm:col-span-4" label="Upline Percentage">
+              <FormControl v-model="electricity_settings_form.upline_percentage" :error="electricity_settings_form.errors.upline_percentage"
+                type="number" />
+            </FormField>
+
+            <FormField class="sm:col-span-4" label="Upline No. of generations">
+              <FormControl v-model="electricity_settings_form.upline_generations" :error="electricity_settings_form.errors.upline_generations"
+                type="number" />
+            </FormField>
+
+          </div>
+          <BaseButton :disabled="electricity_settings_form.processing" type="submit" color="bg-green-600"
+            label="Save Settings" class="w-full text-white my-4 mt-6" />
+        </CardBox>
+      </div>
+
+      <div v-if="current_page == 16" class="mt-[30px]">
+        <CardBox class="mb-6">
+          <h2 class="text-2xl font-semibold">Choose Disco To Manage</h2>
+
+          <ul v-if="discos.length > 0" class="divide-y-2 divide-gray-400 mt-[50px]">
+
+            <li v-for="(disco, index) in discos" @click="manageElectricityOption(index)" class="listview-list"
+              :key="index">
+              <span class="font-semibold capitalize">{{ index + 1 }}. {{ disco }}</span>
+            </li>
+
+
+          </ul>
+        </CardBox>
+      </div>
+
       <div v-if="current_page == 14" class="mt-[30px]">
         <CardBox class="mb-6" @submit.prevent="submitEducationalSettingsForm" isForm>
           <h2 class="text-2xl font-semibold capitalize"
@@ -1433,6 +1740,23 @@ const submitEducationalSettingsForm = () => {
                 name="platform" :options="current_educational_plans_options" type="radio" />
 
 
+            </FormField>
+
+            <FormField class="sm:col-span-4" label="Discount">
+              <FormControl v-model="educational_settings_form.discount" :error="educational_settings_form.errors.discount"
+                type="number" />
+            </FormField>
+
+            <!-- <h4 class="font-bold my-3 mb-2 text-xl col-span-12">Upline earnings</h4> -->
+
+            <FormField class="sm:col-span-4" label="Upline Percentage">
+              <FormControl v-model="educational_settings_form.upline_percentage" :error="educational_settings_form.errors.upline_percentage"
+                type="number" />
+            </FormField>
+
+            <FormField class="sm:col-span-4" label="Upline No. of generations">
+              <FormControl v-model="educational_settings_form.upline_generations" :error="educational_settings_form.errors.upline_generations"
+                type="number" />
             </FormField>
 
             <FormField class="w-full sm:col-span-12 my-1" label="Alter prices">
@@ -1551,6 +1875,24 @@ const submitEducationalSettingsForm = () => {
 
             </FormField>
 
+
+            <FormField class="sm:col-span-4" label="Discount">
+              <FormControl v-model="router_settings_form.discount" :error="router_settings_form.errors.discount"
+                type="number" />
+            </FormField>
+
+            <!-- <h4 class="font-bold my-3 mb-2 text-xl col-span-12">Upline earnings</h4> -->
+
+            <FormField class="sm:col-span-4" label="Upline Percentage">
+              <FormControl v-model="router_settings_form.upline_percentage" :error="router_settings_form.errors.upline_percentage"
+                type="number" />
+            </FormField>
+
+            <FormField class="sm:col-span-4" label="Upline No. of generations">
+              <FormControl v-model="router_settings_form.upline_generations" :error="router_settings_form.errors.upline_generations"
+                type="number" />
+            </FormField>
+
             <FormField class="w-full sm:col-span-12 my-1" label="Alter prices">
               <FormCheckRadioGroup @change="loadRouterPlanDetails(true)"
                 v-model="router_settings_form.modify_prices_status"
@@ -1664,6 +2006,23 @@ const submitEducationalSettingsForm = () => {
                 type="radio" />
 
 
+            </FormField>
+
+            <FormField class="sm:col-span-4" label="Discount">
+              <FormControl v-model="cable_settings_form.discount" :error="airtime_settings_form.errors.discount"
+                type="number" />
+            </FormField>
+
+            <!-- <h4 class="font-bold my-3 mb-2 text-xl col-span-12">Upline earnings</h4> -->
+
+            <FormField class="sm:col-span-4" label="Upline Percentage">
+              <FormControl v-model="cable_settings_form.upline_percentage" :error="cable_settings_form.errors.upline_percentage"
+                type="number" />
+            </FormField>
+
+            <FormField class="sm:col-span-4" label="Upline No. of generations">
+              <FormControl v-model="cable_settings_form.upline_generations" :error="cable_settings_form.errors.upline_generations"
+                type="number" />
             </FormField>
 
             <FormField class="w-full sm:col-span-12 my-1" label="Alter prices">
@@ -1902,24 +2261,7 @@ const submitEducationalSettingsForm = () => {
 
       </div>
 
-      <div v-if="current_page == 7" class="mt-[30px]">
-        <CardBox class="mb-6" @submit.prevent="submitElectricitySettingsForm" isForm>
-          <h2 class="text-2xl font-semibold capitalize" v-html="`Manage electricity recharge settings`">
-          </h2>
 
-          <div class="sm:grid sm:grid-cols-12 sm:gap-6 mt-[50px]">
-            <FormField class="w-full sm:col-span-12 my-2" label="Select Platform" wrap-body>
-              <FormCheckRadioGroup v-model="electricity_settings_form.platform"
-                :error="electricity_settings_form.errors.platform" name="platform" :options="electricity_platforms"
-                type="radio" />
-
-            </FormField>
-
-          </div>
-          <BaseButton :disabled="electricity_settings_form.processing" type="submit" color="bg-green-600"
-            label="Save Settings" class="w-full text-white my-4 mt-6" />
-        </CardBox>
-      </div>
 
       <div v-if="current_page == 6" class="mt-[30px]">
         <CardBox class="mb-6" @submit.prevent="submitAirtimeSettingsForm" isForm>
@@ -1941,10 +2283,10 @@ const submitEducationalSettingsForm = () => {
                 type="number" />
             </FormField>
 
-            <FormField class="sm:col-span-6" label="Purchaser Cashback Perc. ">
+            <!-- <FormField class="sm:col-span-6" label="Purchaser Cashback Perc. ">
               <FormControl v-model="airtime_settings_form.purchaser_percentage" :error="airtime_settings_form.errors.purchaser_percentage"
                 type="number" />
-            </FormField>
+            </FormField> -->
 
             <h4 class="font-bold my-3 mb-2 text-xl col-span-12">Upline earnings</h4>
 
@@ -1994,6 +2336,23 @@ const submitEducationalSettingsForm = () => {
                 type="radio" />
 
 
+            </FormField>
+
+            <FormField class="sm:col-span-4" label="Discount">
+              <FormControl v-model="data_settings_form.discount" :error="data_settings_form.errors.discount"
+                type="number" />
+            </FormField>
+
+            <!-- <h4 class="font-bold my-3 mb-2 text-xl col-span-12">Upline earnings</h4> -->
+
+            <FormField class="sm:col-span-4" label="Upline Percentage">
+              <FormControl v-model="data_settings_form.upline_percentage" :error="data_settings_form.errors.upline_percentage"
+                type="number" />
+            </FormField>
+
+            <FormField class="sm:col-span-4" label="Upline No. of generations">
+              <FormControl v-model="data_settings_form.upline_generations" :error="data_settings_form.errors.upline_generations"
+                type="number" />
             </FormField>
 
             <FormField class="w-full sm:col-span-12 my-1" label="Alter prices">
@@ -2146,6 +2505,10 @@ const submitEducationalSettingsForm = () => {
               <span class="font-semibold ">2. View Vtu History</span>
             </li>
 
+            <li @click="manageVtuServices" class="listview-list">
+              <span class="font-semibold ">3. Manage Vtu Services</span>
+            </li>
+
 
           </ul>
         </CardBox>
@@ -2186,7 +2549,12 @@ const submitEducationalSettingsForm = () => {
         <font-awesome-icon class="text-white text-2xl" icon="fa-solid fa-arrow-left" />
       </FloatingActionButton>
 
-      <FloatingActionButton v-if="current_page == 7" @click="openPage(2)" :styles="'background: 9124a3;'"
+      <FloatingActionButton v-if="current_page == 7" @click="openPage(16)" :styles="'background: 9124a3;'"
+        :title="'Go Back'">
+        <font-awesome-icon class="text-white text-2xl" icon="fa-solid fa-arrow-left" />
+      </FloatingActionButton>
+
+      <FloatingActionButton v-if="current_page == 16" @click="openPage(2)" :styles="'background: 9124a3;'"
         :title="'Go Back'">
         <font-awesome-icon class="text-white text-2xl" icon="fa-solid fa-arrow-left" />
       </FloatingActionButton>
@@ -2213,6 +2581,11 @@ const submitEducationalSettingsForm = () => {
       </FloatingActionButton>
 
       <FloatingActionButton v-if="current_page == 2" @click="current_page = 1" :styles="'background: 9124a3;'"
+        :title="'Go Back'">
+        <font-awesome-icon class="text-white text-2xl" icon="fa-solid fa-arrow-left" />
+      </FloatingActionButton>
+
+      <FloatingActionButton v-if="current_page == 17" @click="current_page = 1" :styles="'background: 9124a3;'"
         :title="'Go Back'">
         <font-awesome-icon class="text-white text-2xl" icon="fa-solid fa-arrow-left" />
       </FloatingActionButton>

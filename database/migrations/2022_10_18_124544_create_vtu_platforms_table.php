@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string("platform")->nullable();
             $table->decimal("purchaser_percentage", 20, 2)->default(0.00);
             $table->decimal("upline_percentage", 20, 2)->default(0.00);
-            $table->integer("dwnl_gens")->default(0);
+            $table->integer("upline_generations")->default(0);
             $table->timestamps();
         });
     }

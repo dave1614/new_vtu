@@ -41,201 +41,7 @@
   }
 }
 </style>
-<template inheritAttrs="false">
-  <LayoutAuthenticated>
 
-    <Head :title="`Internet Data`" />
-    <SectionMain>
-      <SectionTitleLineWithButton :icon="mdiCellphoneDock " :title="`Internet Data`" main>
-        <!-- <BaseButton href="https://github.com/justboil/admin-one-vue-tailwind" target="_blank" :icon="mdiGithub"
-          label="Star on GitHub" color="contrast" rounded-full small /> -->
-
-        <BaseButton :href="route('user_vtu_history_page') + '?length=10&type=data&isDirty=true&__rememberable=true'"
-          :icon="mdiHistory" label="View His." color="success" rounded-full small />
-      </SectionTitleLineWithButton>
-      <!-- <NotificationBar color="info" :icon="mdiMonitorCellphone">
-        <b>Responsive table.</b> Collapses on mobile
-      </NotificationBar> -->
-
-
-
-      <CardBox isForm @submit.prevent="validateBuyDataRequest" class="">
-        <h4 class="subhead">Select Network</h4>
-
-        <div class="mx-2 my-9">
-          <div class="grid grid-cols-12 gap-1">
-
-            <div class="col-span-2 sm:col-span-1 card network-card"
-              :class="buy_data_request.network == 'mtn' ? 'selected' : ''" @click="selectNetwork('mtn')">
-              <div class="card-body text-center">
-                <img src="/images/mtn_logo.png" alt="MTN" class="">
-                <!-- <p>MTN</p> -->
-              </div>
-
-            </div>
-
-            <div class="col-span-1">
-
-            </div>
-
-            <div class="col-span-2 sm:col-span-1 card network-card"
-              :class="buy_data_request.network == 'glo' ? 'selected' : ''" @click="selectNetwork('glo')">
-              <div class="card-body text-center">
-                <img src="/images/glo_logo.jpg" alt="GLO" class="">
-                <!-- <p>MTN</p> -->
-              </div>
-            </div>
-
-            <div class="col-span-1">
-
-            </div>
-
-            <div class="col-span-2 sm:col-span-1 card network-card"
-              :class="buy_data_request.network == 'airtel' ? 'selected' : ''" @click="selectNetwork('airtel')">
-              <div class="card-body text-center">
-                <img src="/images/airtel_logo.png" alt="Airtel" class="">
-                <!-- <p>MTN</p> -->
-              </div>
-            </div>
-
-
-
-            <div class="col-span-1">
-
-            </div>
-
-            <div class="col-span-2 sm:col-span-1 card network-card"
-              :class="buy_data_request.network == '9mobile' ? 'selected' : ''" @click="selectNetwork('9mobile')">
-              <div class="card-body text-center">
-                <img src="/images/9mobile-1.png" alt="9mobile" class="">
-                <!-- <p>MTN</p> -->
-              </div>
-            </div>
-
-          </div>
-          <div class="row">
-            <div v-if="buy_data_request.errors.network" class="form-error">{{ buy_data_request.errors.network }}
-            </div>
-          </div>
-        </div>
-
-        
-        <h4 class="subhead my-5">Enter Phone Number</h4>
-
-        <FormField class="" label="">
-          <FormControl v-model="buy_data_request.phone_number" :error="buy_data_request.errors.phone_number"
-            :icon="mdiPhone" type="text" id="phone_number" placeholder="e.g 08127027321" />
-        </FormField>
-
-        <h4 class="text-xl font-bold mt-2 mb-6" v-if="data_plans.length > 0">Select Data Plan</h4>
-        <!-- <h4 class="subhead text-warning" v-else>Data Plans Could Not Be Loaded.</h4> -->
-        
-        <div class="container" v-if="data_plans.length > 0">
-          <div @click="selectDataPlan(plan.index - 1)"
-            class="data-plans-card card"
-            :class="buy_data_request.selected_plan_index == (plan.index - 1) ? 'selected' : '' "
-            v-for="plan in data_plans" :key="plan.index">
-            <div class="grid grid-cols-12 gap-6">
-        
-              <div class="col-span-1 sm:col-span-3 col-3 col-sm-1">
-                <span v-html="plan.index + '.'"></span>
-              </div>
-        
-              <div class="col-span-6 sm:col-span-4 col-4 col-sm-6">
-                <span v-html="plan.product_name"></span>
-              </div>
-        
-              <div class="col-span-5">
-                <span v-html="'₦' + mainStore.addCommas(plan.amount)"></span>
-              </div>
-        
-            
-            </div>
-          </div>
-        </div>
-
-
-
-        <!-- <button :class="buy_data_request.processing ? 'opacity-80 cursor-not-allowed' : ''"
-          @mouseleave="btn_hovered = false" @mouseover="btn_hovered = true" type="submit"
-          class="app-form-button mt-9 text-left pl-6">
-          Continue
-          <img v-if="buy_data_request.processing" class="inline-block w-7 h-6 float-right"
-            :src="btn_hovered ? FormLoaderDark : FormLoaderLight" alt="">
-        </button> -->
-      </CardBox>
-
-      <CardBoxModal v-model="showPreviewTransactionModal" button="danger" buttonLabel="Close"
-        :title="`Preview Transaction`">
-        <div class="">
-          <div class="text-center">
-            <p>Kindly confirm that the details you entered are valid before clicking the "Confirm" button.</p>
-
-          </div>
-          
-          <!-- <div class="overflow-x-hidden max-h-[270px]"> -->
-          <div class="">
-            <table class="table table-bordered ">
-              <tbody v-if="buy_data_request.selected_plan.length != {}">
-                <tr>
-                  <td>NETWORK</td>
-                  <td><em v-html="buy_data_request.selected_plan.network" class="text-primary"></em></td>
-                </tr>
-                <tr>
-                  <td>DATA PLAN</td>
-                  <td><em v-html="buy_data_request.selected_plan.product_name" class="text-primary"></em></td>
-                </tr>
-                <tr>
-                  <td>AMOUNT</td>
-                  <td><em v-html="'₦ ' + mainStore.addCommas(buy_data_request.selected_plan.amount)" class="text-primary"></em></td>
-                </tr>
-                <tr>
-                  <td>PHONE</td>
-                  <td><em v-html="buy_data_request.phone_number" class="text-primary"></em></td>
-                </tr>
-            
-                <tr v-if="buy_data_request.selected_plan.sub_type == 'combo'">
-                  <td>RECHARGE TYPE</td>
-                  <td><em class="text-primary">Combo Recharge</em></td>
-                </tr>
-                <tr v-else>
-                  <td>RECHARGE TYPE</td>
-                  <td><em class="text-primary">Normal Recharge</em></td>
-                </tr>
-                <tr>
-                  <td>PAYABLE</td>
-                  <td><em v-html="'₦ ' + mainStore.addCommas(buy_data_request.selected_plan.amount)" class="text-primary"></em></td>
-                </tr>
-              </tbody>
-            </table>
-            <!-- <div class="justify-content-center text-center">
-            
-              <BaseButton @click="confirmAndProceedWithTransaction" class="" label="Confirm" color="success" rounded />
-              <br>
-              <p class="text-red-500 cursor-pointer" @click="showPreviewTransactionModal = false">Cancel and return</p>
-            </div> -->
-          </div>
-
-          <div class="justify-content-center text-center">
-
-            <BaseButton @click="confirmAndProceedWithTransaction" class="" label="Confirm" color="success" rounded />
-            <br>
-            <p class="text-red-500 cursor-pointer" @click="showPreviewTransactionModal = false">Cancel and return</p>
-          </div>
-        </div>
-
-      </CardBoxModal>
-    </SectionMain>
-
-  </LayoutAuthenticated>
-  <div @click="validateBuyDataRequest" v-if="!buy_data_request.processing">
-    <FloatingTextButton :styles="'background: 9124a3;'" :title="'Proceed'">
-  
-      <!-- <i class="fas fa-arrow-right" style="font-size: 25px; color: #fff;"></i> -->
-      <span style="font-size: 18px; font-weight: bold; color: #fff;">Submit</span>
-    </FloatingTextButton>
-  </div>
-</template>
 <script setup>
 import {
   mdiMonitorCellphone,
@@ -279,13 +85,20 @@ import axios from "axios";
 import _ from 'lodash';
 
 const page = usePage();
-const props = page.props;
-const user = props.user;
-const test_plans = props.test_plans;
+
+const props = defineProps({
+  user: {
+    type: Object
+  },
+  networks: {
+    type: Array
+  }
+});
+
 const mainStore = useMainStore();
 
 const btn_hovered = ref(false);
-
+const network_discount = ref(props.networks[0].discount);
 
 
 const show_other_overlay = ref(false);
@@ -316,6 +129,8 @@ const buy_data_request = useForm({
   phone_number: null,
   selected_plan: {},
   ported: false,
+  payable: 0.00,
+  discount: props.networks[0].discount,
 });
 // buy_data_request.selected_plan_index = 0
 
@@ -445,25 +260,20 @@ const proceedWithGsubzDataRequest = () => {
 
       var response = page.props.flash.data;
       console.log(response)
-    
+
 
       if (response.success) {
 
         var order_id = response.order_id;
         var transaction_pending = response.transaction_pending;
+        var amount_debited = response.amount_debited;
 
-        if (network == "glo" || network == "airtel") {
-          var text_html = "Your Request To Top Up <em class='text-primary'>" + phone_number + "</em> With Data Worth " + product_name + " On <span class='capitalize'>" + network + "</span> Network Is Successful. The Order Id For This Transaction Is <em class='text-primary'>" + order_id + "</em>.";
-        } else {
-          var text_html = "Your Request To Top Up <em class='text-primary'>" + phone_number + "</em> With Data Worth " + product_name + " On <span class='capitalize'>" + network + "</span> Network Is Successful. Note You Have Been Debited Of ₦" + mainStore.addCommas(amount) + ". The Order Id For This Transaction Is <em class='text-primary'>" + order_id + "</em>.";
-        }
-
+        var text_html = "Your Request To Top Up <em class='text-primary'>" + phone_number + "</em> With Data Worth " + product_name + " On <span class='capitalize'>" + network + "</span> Network Is Successful. Note You Have Been Debited Of ₦" + mainStore.addCommas(amount_debited) + ". The Order Id For This Transaction Is <em class='text-primary'>" + order_id + "</em>.";
 
         if (transaction_pending) {
           text_html += " Note: This Order Is Currently Pending. To See The Status Of Your Transaction, Track This Transaction From The Recharge Vtu Transaction History Page";
 
         }
-
 
         Swal.fire({
           title: 'Info',
@@ -518,7 +328,7 @@ const proceedWithGsubzDataRequest = () => {
 };
 
 const proceedWithClubDataRequest = () => {
-  
+
 
   var selected_plan = buy_data_request.selected_plan;
   var phone_number = buy_data_request.phone_number;
@@ -533,7 +343,7 @@ const proceedWithClubDataRequest = () => {
   console.log(sub_type)
   console.log(network)
   console.log(ported)
-  
+
   buy_data_request.post(route('purchase_clubkonnect_data'), {
     preserveScroll: true,
     onSuccess: (page) => {
@@ -541,18 +351,16 @@ const proceedWithClubDataRequest = () => {
       var response = page.props.flash.data;
       console.log(response)
 
-      
+
 
       if (response.success) {
 
         var order_id = response.order_id;
         var transaction_pending = response.transaction_pending;
+        var amount_debited = response.amount_debited;
 
-        if (network == "glo" || network == "airtel") {
-          var text_html = "Your Request To Top Up <em class='text-primary'>" + phone_number + "</em> With Data Worth " + product_name + " On <span class='capitalize'>" + network + "</span> Network Is Successful. The Order Id For This Transaction Is <em class='text-primary'>" + order_id + "</em>.";
-        } else {
-          var text_html = "Your Request To Top Up <em class='text-primary'>" + phone_number + "</em> With Data Worth " + product_name + " On <span class='capitalize'>" + network + "</span> Network Is Successful. Note You Have Been Debited Of ₦" + mainStore.addCommas(amount) + ". The Order Id For This Transaction Is <em class='text-primary'>" + order_id + "</em>.";
-        }
+        var text_html = "Your Request To Top Up <em class='text-primary'>" + phone_number + "</em> With Data Worth " + product_name + " On <span class='capitalize'>" + network + "</span> Network Is Successful. Note You Have Been Debited Of ₦" + mainStore.addCommas(amount_debited) + ". The Order Id For This Transaction Is <em class='text-primary'>" + order_id + "</em>.";
+
 
 
         if (transaction_pending) {
@@ -614,7 +422,7 @@ const proceedWithClubDataRequest = () => {
 };
 
 const proceedWithPayscribeDataRequest = () => {
-  
+
 
   var selected_plan = buy_data_request.selected_plan;
   var phone_number = buy_data_request.phone_number;
@@ -645,7 +453,8 @@ const proceedWithPayscribeDataRequest = () => {
         if (network == "glo" || network == "airtel") {
           var text_html = "Your Request To Top Up <em class='text-primary'>" + phone_number + "</em> With Data Worth " + product_name + " On <span class='capitalize'>" + network + "</span> Network Is Successful. The Order Id For This Transaction Is <em class='text-primary'>" + order_id + "</em>.";
         } else {
-          var text_html = "Your Request To Top Up <em class='text-primary'>" + phone_number + "</em> With Data Worth " + product_name + " On <span class='capitalize'>" + network + "</span> Network Is Successful. Note You Have Been Debited Of ₦" + mainStore.addCommas(amount) + ". The Order Id For This Transaction Is <em class='text-primary'>" + order_id + "</em>.";
+          var amount_debited = response.amount_debited;
+          var text_html = "Your Request To Top Up <em class='text-primary'>" + phone_number + "</em> With Data Worth " + product_name + " On <span class='capitalize'>" + network + "</span> Network Is Successful. Note You Have Been Debited Of ₦" + mainStore.addCommas(amount_debited) + ". The Order Id For This Transaction Is <em class='text-primary'>" + order_id + "</em>.";
         }
 
 
@@ -734,7 +543,7 @@ const proceedWithComboRequest = () => {
 
         var text_html = "Your SME DATA Recharge Request To Credit <em class='text-primary'>" + phone_number + "</em> With Data Worth " + product_name + " On <span class='capitalize;'>" + network + "</span> Network Has Been Sent To The Admin. You Would Be Credited Shortly . Note You Have Been Debited Of ₦" + mainStore.addCommas(amount) + "."
 
-       
+
         Swal.fire({
           title: 'Info',
           html: text_html,
@@ -746,7 +555,7 @@ const proceedWithComboRequest = () => {
           router.visit(route('internet_data'));
 
         });
-        
+
 
       } else if (response.insuffecient_funds) {
         Swal.fire({
@@ -776,7 +585,7 @@ const proceedWithComboRequest = () => {
 };
 
 const confirmAndProceedWithTransaction = () => {
-  
+
 
   var selected_plan = buy_data_request.selected_plan;
   var phone_number = buy_data_request.phone_number;
@@ -790,7 +599,7 @@ const confirmAndProceedWithTransaction = () => {
 
 
 
-  
+
   showPreviewTransactionModal.value = false
   if (sub_type == "combo" && network == "9mobile") {
     proceedWithComboRequest();
@@ -806,19 +615,19 @@ const confirmAndProceedWithTransaction = () => {
 };
 
 const proceedToSubmitBuyDataRequest = () => {
-  
+
   var network = buy_data_request.network;
   var selected_plan = buy_data_request.selected_plan;
   var phone_number = buy_data_request.phone_number;
 
 
   showPreviewTransactionModal.value = true;
-  
+
 
 }
 
 const validateBuyDataRequest = () => {
-  
+
   var network = buy_data_request.network;
   var selected_plan = buy_data_request.selected_plan;
   var phone_number = buy_data_request.phone_number;
@@ -828,7 +637,7 @@ const validateBuyDataRequest = () => {
       proceedToSubmitBuyDataRequest();
 
     } else {
-      
+
       Swal.fire({
         title: 'Error',
         html: "Phone Number Entered Is Not Valid. Please Enter A Valid One",
@@ -845,21 +654,21 @@ const validateBuyDataRequest = () => {
   }
 
 };
-  
+
 const selectDataPlan = (index) => {
-  
+
   buy_data_request.selected_plan_index = index;
   buy_data_request.selected_plan = data_plans.value[index];
   console.log(buy_data_request.selected_plan);
 };
 
-const getDataPlans = (network) => {
-  
+const getDataPlans = (network, discount) => {
+
   get_data_plans_request.network = network;
   get_data_plans_request.post(route('get_data_plans_by_network'), {
     preserveScroll: true,
     onSuccess: (page) => {
-      
+
       var response = page.props.flash.data;
       console.log(response)
 
@@ -868,6 +677,7 @@ const getDataPlans = (network) => {
         if (response.data_plans.length > 0) {
           buy_data_request.selected_plan_index = 0;
           buy_data_request.network = network;
+          buy_data_request.discount = discount;
           data_plans.value = response.data_plans;
           buy_data_request.selected_plan = data_plans.value[buy_data_request.selected_plan_index];
         } else {
@@ -898,8 +708,8 @@ const getDataPlans = (network) => {
 
 };
 
-const selectNetwork = (network) => {
-  
+const selectNetwork = (network, discount) => {
+
   if (buy_data_request.network != network) {
     // if (network == "9mobile") {
     //   Swal.fire({
@@ -929,12 +739,190 @@ const selectNetwork = (network) => {
     // }
 
     get_data_plans_request.combo = false;
-    getDataPlans(network);
+    getDataPlans(network, discount);
   }
 
 
 };
 
 
+
+
 </script>
 
+
+<template inheritAttrs="false">
+  <LayoutAuthenticated>
+
+    <Head :title="`Internet Data`" />
+    <SectionMain>
+      <SectionTitleLineWithButton :icon="mdiCellphoneDock " :title="`Internet Data`" main>
+        <!-- <BaseButton href="https://github.com/justboil/admin-one-vue-tailwind" target="_blank" :icon="mdiGithub"
+          label="Star on GitHub" color="contrast" rounded-full small /> -->
+
+        <BaseButton :href="route('user_vtu_history_page') + '?length=10&type=data&isDirty=true&__rememberable=true'"
+          :icon="mdiHistory" label="View His." color="success" rounded-full small />
+      </SectionTitleLineWithButton>
+      <!-- <NotificationBar color="info" :icon="mdiMonitorCellphone">
+        <b>Responsive table.</b> Collapses on mobile
+      </NotificationBar> -->
+
+
+
+      <CardBox isForm @submit.prevent="validateBuyDataRequest" class="">
+        <h4 class="subhead">Select Network</h4>
+
+        <div class="mx-2 my-9">
+          <div class="grid grid-cols-12 gap-1">
+
+            <template v-for="(network, index) in networks" :key="index">
+              <div :class="buy_data_request.network == network.name ? 'selected' : ''"
+                @click="selectNetwork(network.name, network.discount)"
+                class="col-span-2 sm:col-span-1 card network-card">
+                <div class="card-body text-center">
+                  <div v-if="network.discount > 0"
+                    class="bg-primary rounded-lg mb-2 text-xs px-1 py-1 font-semibold text-white">{{ network.discount
+                    }}% discount</div>
+                  <img :src="network.image" :alt="network.name" class="">
+                  <!-- <p>MTN</p> -->
+                </div>
+
+              </div>
+
+              <div class="col-span-1">
+
+              </div>
+
+            </template>
+
+
+          </div>
+          <div class="row">
+            <div v-if="buy_data_request.errors.network" class="form-error">{{ buy_data_request.errors.network }}
+            </div>
+          </div>
+        </div>
+
+
+        <h4 class="subhead my-5">Enter Phone Number</h4>
+
+        <FormField class="" label="">
+          <FormControl v-model="buy_data_request.phone_number" :error="buy_data_request.errors.phone_number"
+            :icon="mdiPhone" type="text" id="phone_number" placeholder="e.g 08127027321" />
+        </FormField>
+
+        <h4 class="text-xl font-bold mt-2 mb-6" v-if="data_plans.length > 0">Select Data Plan</h4>
+        <!-- <h4 class="subhead text-warning" v-else>Data Plans Could Not Be Loaded.</h4> -->
+
+        <div class="container" v-if="data_plans.length > 0">
+          <div @click="selectDataPlan(index)"
+            class="data-plans-card card"
+            :class="buy_data_request.selected_plan_index == index ? 'selected' : '' "
+            v-for="(plan, index) in data_plans" :key="index">
+            <div class="grid grid-cols-12 gap-6">
+
+              <div class="col-span-1 sm:col-span-3 col-3 col-sm-1">
+                <span v-html="index + 1 +'.'"></span>
+              </div>
+
+              <div class="col-span-6 sm:col-span-4 col-4 col-sm-6">
+                <span v-html="plan.product_name"></span>
+              </div>
+
+              <div class="col-span-5">
+                <span v-html="'₦' + mainStore.addCommas(plan.amount)"></span>
+              </div>
+
+
+            </div>
+          </div>
+        </div>
+
+
+
+        <!-- <button :class="buy_data_request.processing ? 'opacity-80 cursor-not-allowed' : ''"
+          @mouseleave="btn_hovered = false" @mouseover="btn_hovered = true" type="submit"
+          class="app-form-button mt-9 text-left pl-6">
+          Continue
+          <img v-if="buy_data_request.processing" class="inline-block w-7 h-6 float-right"
+            :src="btn_hovered ? FormLoaderDark : FormLoaderLight" alt="">
+        </button> -->
+      </CardBox>
+
+      <CardBoxModal v-model="showPreviewTransactionModal" button="danger" buttonLabel="Close"
+        :title="`Preview Transaction`">
+        <div class="">
+          <div class="text-center">
+            <p>Kindly confirm that the details you entered are valid before clicking the "Confirm" button.</p>
+
+          </div>
+
+          <!-- <div class="overflow-x-hidden max-h-[270px]"> -->
+          <div class="">
+            <table class="table table-bordered ">
+              <tbody v-if="buy_data_request.selected_plan.length != {}">
+                <tr>
+                  <td>NETWORK</td>
+                  <td><em v-html="buy_data_request.selected_plan.network" class="text-primary"></em></td>
+                </tr>
+                <tr>
+                  <td>DATA PLAN</td>
+                  <td><em v-html="buy_data_request.selected_plan.product_name" class="text-primary"></em></td>
+                </tr>
+                <tr>
+                  <td>AMOUNT</td>
+                  <td><em v-html="'₦ ' + mainStore.addCommas(buy_data_request.selected_plan.amount)" class="text-primary"></em></td>
+                </tr>
+                <tr>
+                  <td>PHONE</td>
+                  <td><em v-html="buy_data_request.phone_number" class="text-primary"></em></td>
+                </tr>
+
+                <tr v-if="buy_data_request.selected_plan.sub_type == 'combo'">
+                  <td>RECHARGE TYPE</td>
+                  <td><em class="text-primary">Combo Recharge</em></td>
+                </tr>
+                <tr v-else>
+                  <td>RECHARGE TYPE</td>
+                  <td><em class="text-primary">Normal Recharge</em></td>
+                </tr>
+                <tr>
+                  <td>DISCOUNT</td>
+                  <td><em v-html="`${buy_data_request.discount}%`" class="text-primary"></em></td>
+
+                </tr>
+                <tr>
+                  <td>PAYABLE</td>
+                  <td><em v-html="'₦ ' + mainStore.addCommas(parseFloat(buy_data_request.selected_plan.amount - ((buy_data_request.discount / 100) * buy_data_request.selected_plan.amount)).toFixed(2))" class="text-primary"></em></td>
+                  <!-- <td><em v-html="'₦ ' + mainStore.addCommas(buy_data_request.payable)" class="text-primary"></em></td> -->
+                </tr>
+              </tbody>
+            </table>
+            <!-- <div class="justify-content-center text-center">
+
+              <BaseButton @click="confirmAndProceedWithTransaction" class="" label="Confirm" color="success" rounded />
+              <br>
+              <p class="text-red-500 cursor-pointer" @click="showPreviewTransactionModal = false">Cancel and return</p>
+            </div> -->
+          </div>
+
+          <div class="justify-content-center text-center">
+
+            <BaseButton @click="confirmAndProceedWithTransaction" class="" label="Confirm" color="success" rounded />
+            <br>
+            <p class="text-red-500 cursor-pointer" @click="showPreviewTransactionModal = false">Cancel and return</p>
+          </div>
+        </div>
+
+      </CardBoxModal>
+    </SectionMain>
+
+  </LayoutAuthenticated>
+  <div @click="validateBuyDataRequest" v-if="!buy_data_request.processing">
+    <FloatingTextButton :styles="'background: 9124a3;'" :title="'Proceed'">
+
+      <!-- <i class="fas fa-arrow-right" style="font-size: 25px; color: #fff;"></i> -->
+      <span style="font-size: 18px; font-weight: bold; color: #fff;">Submit</span>
+    </FloatingTextButton>
+  </div>
+</template>

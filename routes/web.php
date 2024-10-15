@@ -12,6 +12,7 @@ use App\Http\Controllers\NewsLetterController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SavingsController;
 use App\Http\Controllers\SetupController;
+use App\Http\Controllers\TestController;
 use App\Http\Controllers\VtuController;
 use App\Http\Controllers\WalletController;
 use Illuminate\Foundation\Application;
@@ -26,6 +27,7 @@ Route::get('/', function () {
         'phpVersion' => PHP_VERSION,
     ]);
 })->name('main_page');
+Route::get('/test', [TestController::class, 'webTest']);
 
 // Route::get('/dashboard', function () {
 //     // return Inertia::render('Dashboard');
@@ -87,6 +89,7 @@ Route::middleware(['providus', 'verified', 'auth'])->group(function () {
 Route::middleware(['providus', 'auth', 'verified', 'check_registration', 'admin'])->group(function () {
 
 
+    Route::get('/vtu_accounting', [AdminController::class, 'loadViewVtuAccounting'])->name('vtu_accounting');
     Route::get('/manage_vtu_history', [AdminController::class, 'loadManageVtuPageHistory'])->name('manage_vtu_history');
     Route::get('/manage_vtu/{param1?}', [AdminController::class, 'loadManageVtuPage'])->name('manage_vtu');
     Route::get('/goeasy_savings_admin', [AdminController::class, 'loadAdminGoEasySavingsPage'])->name('goeasy_savings_admin');
@@ -131,6 +134,8 @@ Route::middleware(['providus', 'auth', 'verified', 'check_registration', 'admin'
 
 
 
+    Route::post('/load_vtu_accounting_records_admin', [AdminController::class, 'loadVtuAccountingRecords'])->name('load_vtu_accounting_records_admin');
+    Route::post('/load_vtu_services_detais', [AdminController::class, 'loadVtuServicesDetails'])->name('load_vtu_services_detais');
     Route::post('/save_educational_plans_settings', [AdminController::class, 'saveEducationalPlansSettings'])->name('save_educational_plans_settings');
     Route::post('/load_educational_plans_details_by_network_admin', [AdminController::class, 'loadEducationalPlanDetailsByNetwork'])->name('load_educational_plans_details_by_network_admin');
     Route::post('/save_router_plans_settings', [AdminController::class, 'saveRouterPlansSettings'])->name('save_router_plans_settings');
@@ -204,7 +209,7 @@ Route::middleware(['providus', 'auth', 'verified', 'check_registration'])->group
     Route::get('deactivate_saving_plan', [SavingsController::class, 'showDeactivateSavingPlanPage'])->name('deactivate_saving_plan');
     Route::get('saving/{easySaving}', [SavingsController::class, 'showSavingDetailsPage'])->name('view_saving_details');
     Route::get('earnings_wallet', [EarningsController::class, 'showEarningsMainPage'])->name('earnings_wallet_page');
-
+    Route::get('/electricity_receipt/{transaction}',[VtuController::class,'viewElectricityReceipt'])->name('electricity_receipt');
 
 
 
@@ -265,6 +270,7 @@ Route::middleware(['providus', 'auth', 'verified', 'check_registration'])->group
     Route::post('/recharge_vtu/purchase_eminence_data', [VtuController::class, 'purchaseEminenceData'])->name('purchase_eminence_data');
     Route::post('/recharge_vtu/check_if_disco_is_available', [VtuController::class, 'checkIfDiscoIsAvailable'])->name('check_if_disco_is_available');
     Route::post('/recharge_vtu/validate_meter_number_disco', [VtuController::class, 'validateMeterNumberDisco'])->name('validate_meter_number_disco');
+    Route::post('/recharge_vtu/purchase_electricity_with_gsubz', [VtuController::class, 'purchaseElectricityWithGsubz'])->name('purchase_electricity_with_gsubz');
     Route::post('/recharge_vtu/purchase_electricity_with_payscribe', [VtuController::class, 'purchaseElectricityWithPayscribe'])->name('purchase_electricity_with_payscribe');
     Route::post('/recharge_vtu/purchase_electricity_with_buypower', [VtuController::class, 'purchaseElectricityWithBuypower'])->name('purchase_electricity_with_buypower');
     Route::post('/recharge_vtu/validate_decoder_number_cable_plans', [VtuController::class, 'validateDecoderNumberCablePlans'])->name('validate_decoder_number_cable_plans');
@@ -282,6 +288,7 @@ Route::middleware(['providus', 'auth', 'verified', 'check_registration'])->group
     Route::post('/track_payscribe_educational_epin', [VtuController::class, 'trackPayscribeEducationalEpin'])->name('track_payscribe_educational_epin');
     Route::post('/recharge_vtu/buy_eminence_educational_voucher_vtu', [VtuController::class, 'buyEminenceEducationalVoucherVtu'])->name('buy_eminence_educational_voucher_vtu');
     Route::post('/recharge_vtu/buy_educational_voucher_vtu', [VtuController::class, 'buyEducationalVoucherVtu'])->name('buy_educational_voucher_vtu');
+    Route::post('/track_buypower_vtu_order', [VtuController::class, 'trackBuyPowerVtuOrder'])->name('track_buypower_vtu_order');
 
 
     Route::post('/view_your_genealogy_tree_down', [GenealogyController::class, 'viewYourGenealogyTreeDown'])->name('view_your_genealogy_tree_down');

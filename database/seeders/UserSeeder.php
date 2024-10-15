@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Functions\UsefulFunctions;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -17,30 +18,25 @@ class UserSeeder extends Seeder
      */
     public function run()
     {
-        User::create([
-            'id' => 10,
-            'user_name' => 'admin',
-            'name' => 'Admin One',
-            'is_admin' => 1,
-            'phone' => '08174622455',
-            'email' => 'meetglobalresources@gmail.com',
-            'country_id' => 151,
-            'password' => Hash::make('Dave1614..'),
-            'remember_token' => Str::random(10),
-            'created' => 1,
-        ]);
+        $functions = new UsefulFunctions();
 
-        User::create([
-            'sponsor_user_id' => 10,
-            'user_name' => 'dave1614',
-            'name' => "Nwogo David",
-            'email' => "ikechukwunwogo@gmail.com",
-            'country_id' => 151,
-            'phone' => "07051942325",
-            'password' => Hash::make("Dave1614.."),
-            'remember_token' => Str::random(10),
-        ]);
 
-        User::factory(150)->create();
+
+        // User::create([
+        //     'sponsor_user_id' => 10,
+        //     'user_name' => 'dave1614',
+        //     'name' => "Nwogo David",
+        //     'email' => "ikechukwunwogo@gmail.com",
+        //     'country_id' => 151,
+        //     'phone' => "07051942325",
+        //     'password' => Hash::make("Dave1614.."),
+        //     'remember_token' => Str::random(10),
+        // ]);
+
+        // User::factory(150)->create();
+
+        $functions->createNewUsersSeeder(5);
+
+
     }
 }

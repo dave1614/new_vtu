@@ -28,8 +28,10 @@ export const useMainStore = defineStore('main', () => {
   const notiDismissed = ref(true)
   const email_changed = ref(false)
 
+  function orderIdCut(str){
+    return str.substring(0, 2);
+  }
 
-   
   function replaceUnderscoreWithSpace(str){
     return str.replace(/_/g, ' ');
   };
@@ -53,7 +55,7 @@ export const useMainStore = defineStore('main', () => {
   };
 
   function isNumeric(str) {
-    if (typeof str != "string") return false // we only process strings!  
+    if (typeof str != "string") return false // we only process strings!
     return !isNaN(str) && // use type coercion to parse the _entirety_ of the string (`parseFloat` alone does not do this)...
       !isNaN(parseFloat(str)) // ...and ensure strings of whitespace fail
   };
@@ -68,6 +70,10 @@ export const useMainStore = defineStore('main', () => {
       x1 = x1.replace(rgx, '$1' + ',' + '$2');
     }
     return x1 + x2;
+  };
+
+  function removeCommas(str) {
+    return str.replace(/,/g, '');
   };
 
   function setUser(payload) {
@@ -123,5 +129,7 @@ export const useMainStore = defineStore('main', () => {
     changeIsAdminVal,
     isNumeric,
     addCommas,
+    removeCommas,
+    orderIdCut,
   }
 })

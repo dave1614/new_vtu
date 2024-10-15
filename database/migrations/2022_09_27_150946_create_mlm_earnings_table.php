@@ -19,7 +19,7 @@ return new class extends Migration
             $table->id();
             $table->foreignIdFor(User::class)->constrained()->onDelete('cascade')->nullable();
             $table->foreignIdFor(MlmDb::class)->constrained()->onDelete('cascade')->nullable();
-            $table->integer('type')->nullable();
+            $table->string('type', 300)->nullable();
             $table->decimal('amount',20,2);
             $table->string('date')->nullable();
             $table->string('time')->nullable();

@@ -153,12 +153,12 @@ class AuthenticatedSessionController extends Controller
         }
     }
 
-    public function completeRegistrationStep2(Request $request)
+    public function completeRegistrationStep2(Request $request, $seeder = false)
     {
 
         $sign_up_amt = $this->functions->getSignUpAmount();
 
-        $user = Auth::user();
+        $user = !$seeder ? Auth::user() : User::find($request->user_id);
 
         if ($user->created == 0) {
 
