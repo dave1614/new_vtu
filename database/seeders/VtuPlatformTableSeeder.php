@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\VtuPlatform;
 use Illuminate\Database\Seeder;
 
 class VtuPlatformTableSeeder extends Seeder
@@ -170,5 +171,13 @@ class VtuPlatformTableSeeder extends Seeder
                 'platform' => 'payscribe',
             ),
         ));
+
+        $betting_companies = ['msport', 'bet9ja', 'bangbet', 'betking', '1xbet', 'betway', 'merrybet', 'naijabet', 'nairabet', 'betland', 'betlion', 'supabet', 'mlotto', 'western-lotto', 'hallabet', 'green-lotto'];
+        foreach ($betting_companies as $company) {
+            VtuPlatform::create([
+                'name' => $company . '_betting',
+                'platform' => 'clubkonnect',
+            ]);
+        }
     }
 }

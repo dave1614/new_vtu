@@ -1331,6 +1331,17 @@ class UsefulFunctions {
         return $new_price;
     }
 
+    public function getDiscountForBettingByCompany($company){
+        $discount = 0.00;
+
+        $vtu_plan = VtuPlatform::where('name', "{$company}_betting")->first();
+        if (!is_null($vtu_plan)) {
+            $discount = $vtu_plan->purchaser_percentage;
+        }
+
+        return (double) $discount;
+    }
+
     public function getDiscountForElectricityByNetwork($disco){
         $discount = 0.00;
 
@@ -5036,7 +5047,7 @@ class UsefulFunctions {
         }
 
         if($record_gain){
-            if($type == 'airtime' || $type == 'data' || $type == 'cable' || $type == 'electricity' || $type == 'router' || $type == 'educational'){
+            if($type == 'airtime' || $type == 'data' || $type == 'cable' || $type == 'electricity' || $type == 'router' || $type == 'educational' || $type == 'betting'){
                 $this->fixGainAndSaleRecordsForVtu($vtu_transaction->id);
             }
         }
@@ -5072,6 +5083,10 @@ class UsefulFunctions {
                 $amount_bought = (float) $response->data->amountGenerated;
             }else if($vtu_transaction->service == "gsubz"){
                 $amount_bought = (float) $response->amountPaid;
+            }
+        }else if($vtu_transaction->type == "betting"){
+            if($vtu_transaction->service == "clubkonnect"){
+                $amount_bought = (float) $response->amount;
             }
         }
 

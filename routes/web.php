@@ -134,6 +134,8 @@ Route::middleware(['providus', 'auth', 'verified', 'check_registration', 'admin'
 
 
 
+    Route::post('/save_betting_plans_settings', [AdminController::class, 'saveBettingSettings'])->name('save_betting_plans_settings');
+    Route::post('/load_betting_details_admin', [AdminController::class, 'loadBettingDetailsByNetwork'])->name('load_betting_details_admin');
     Route::post('/load_vtu_accounting_records_admin', [AdminController::class, 'loadVtuAccountingRecords'])->name('load_vtu_accounting_records_admin');
     Route::post('/load_vtu_services_detais', [AdminController::class, 'loadVtuServicesDetails'])->name('load_vtu_services_detais');
     Route::post('/save_educational_plans_settings', [AdminController::class, 'saveEducationalPlansSettings'])->name('save_educational_plans_settings');
@@ -183,6 +185,8 @@ Route::middleware(['providus', 'auth', 'verified', 'check_registration'])->group
     Route::get('recharge_vtu/airtime_to_wallet', [VtuController::class, 'showAirtimeToWalletPage'])->name('airtime_to_wallet');
     Route::get('recharge_vtu/router', [VtuController::class, 'showRouterRechargePage'])->name('router_recharge');
     Route::get('recharge_vtu/educational', [VtuController::class, 'showEducationalVouchersPage'])->name('educational_vouchers');
+
+    Route::get('recharge_vtu/betting_recharge', [VtuController::class, 'showBettingRechargePage'])->name('betting_recharge');
     Route::get('/recharge_vtu/history', [VtuController::class, 'userVtuHistoryPage'])->name('user_vtu_history_page');
 
 
@@ -244,7 +248,8 @@ Route::middleware(['providus', 'auth', 'verified', 'check_registration'])->group
     })->name('error');
 
 
-
+    Route::post('/recharge_vtu/purchase_betting_with_club', [VtuController::class, 'purchaseBettingWithClub'])->name('purchase_betting_with_club');
+    Route::post('/recharge_vtu/validate_id_number_betting_company', [VtuController::class, 'validateIdNumberbettingCompany'])->name('validate_id_number_betting_company');
     Route::post('/wallet/statement_details', [WalletController::class, 'statementDetails'])->name('wallet.statement_details');
     Route::post('/wallet/paystack_payment_init', [WalletController::class, 'paystackPaymentInit'])->name('wallet.paystack_payment_init');
     Route::post('transfer_earnin_to_main_wallet', [EarningsController::class, 'transferEarningToMainWallet'])->name('transfer_earnin_to_main_wallet');

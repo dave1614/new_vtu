@@ -60,6 +60,10 @@ const props = defineProps({
     type: Array,
     default: ['waec', 'neco'],
   },
+  betting_companies: {
+    type: Array,
+    default: ['msport', 'bet9ja', 'bangbet', 'betking', '1xbet', 'betway', 'merrybet', 'naijabet', 'nairabet', 'betland', 'betlion', 'supabet', 'mlotto', 'western-lotto', 'hallabet', 'green-lotto'],
+  },
   airtime_platforms: {
     type: Object,
   },
@@ -70,6 +74,9 @@ const props = defineProps({
     type: Array,
   },
   electricity_platforms: {
+    type: Object,
+  },
+  betting_platforms: {
     type: Object,
   },
   cable_platforms: {
@@ -100,6 +107,7 @@ const current_airtime_plans_options = ref([]);
 const selected_data_network = ref(props.networks[0]);
 const selected_cable_network = ref(props.tvs[0]);
 const selected_electricity_disco = ref(props.discos[0]);
+const selected_betting_company = ref(props.betting_companies[0]);
 const selected_router_network = ref(props.routers[0]);
 const selected_educational_network = ref(props.educationals[0]);
 const data_network_details = ref({});
@@ -110,16 +118,19 @@ const educational_network_details = ref({});
 
 
 const electricity_details = ref({});
+const betting_details = ref({});
 const dataPlansOptions = ref(props.data_platforms);
 const cablePlansOptions = ref(props.cable_platforms);
 const electricityOptions = ref(props.electricity_platforms);
 const routerPlansOptions = ref(props.router_platforms);
+const bettingOptions = ref(props.betting_platforms);
 const educationalPlansOptions = ref(props.educational_platforms);
 const current_data_plans_options = ref([]);
 const current_cable_plans_options = ref([]);
 const current_router_plans_options = ref([]);
 const current_electricity_plans_options = ref([]);
 const current_educational_plans_options = ref([]);
+const current_betting_plans_options = ref([]);
 const priceAlterationOptions = ref({ percentage: 'percentage', direct: 'direct' });
 // const yesOrNoOptions = ref({ yes: 'Yes', no: 'No' });
 const yesOrNoOptions = ref({ yes: 'yes', no: 'no' });
@@ -161,6 +172,15 @@ const data_settings_form = useForm({
 const electricity_settings_form = useForm({
   'platform': props.electricity_platforms[Object.keys(props.electricity_platforms)[0]],
   'disco': props.discos[0],
+  'discount': 0.00,
+//   'purchaser_percentage': 0.00,
+  'upline_percentage': 0.00,
+  'upline_generations': 0,
+})
+
+const betting_settings_form = useForm({
+  'platform': props.betting_platforms[Object.keys(props.betting_platforms)[0]],
+  'company': props.betting_companies[0],
   'discount': 0.00,
 //   'purchaser_percentage': 0.00,
   'upline_percentage': 0.00,
@@ -1638,6 +1658,176 @@ const manageVtuServices = async () => {
     });
   }
 };
+
+const manageBettingSettings =  () => {
+  openPage(18);
+}
+
+const manageBettingOption = (index) => {
+  betting_settings_form.platform = props.betting_platforms[props.betting_companies[index]][Object.keys(props.betting_platforms[props.betting_companies[index]])[0]];
+  selected_betting_company.value = index;
+  loadBettingPlanDetails();
+}
+
+const loadBettingPlanDetails = async (temp = false, platform_changed = false) => {
+  // console.log(platform_changed)
+  // console.log(router_settings_form.platform)
+  try {
+    delete betting_settings_form.temp;
+    var company = props.betting_companies[selected_betting_company.value];
+    // console.log(disco)
+    betting_settings_form.company = company;
+    current_betting_plans_options.value = bettingOptions.value[betting_settings_form.company];
+    Swal.fire({
+      title: 'Please wait',
+      html: `<span class='capitalize'>Loading .....</span>`,
+      icon: 'info',
+      showConfirmButton: false,
+      allowEscapeKey: false,
+      allowOutsideClick: false,
+    });
+
+    let queryRoute = route('load_betting_details_admin');
+
+    var params = betting_settings_form;
+
+
+    if (temp) {
+      params.temp = true;
+    }else{
+      clearBettingSettingsForm();
+    }
+
+
+    if (platform_changed) {
+      params.platform_changed = true;
+    }
+
+    const response = await axios.post(queryRoute, params);
+
+    console.log(response)
+    Swal.close()
+
+    // tests.value = response.data;
+    if (response.data.success) {
+
+      betting_details.value = response.data;
+
+      //data_settings_form.platform = dataPlansOptions.value[network][data_network_details.value.current_platform];
+      if (!temp) {
+        betting_settings_form.platform = betting_details.value.current_platform;
+      }
+
+
+      betting_settings_form.discount = betting_details.value.discount;
+    //   electricity_settings_form.purchaser_percentage = electricity_details.value.purchaser_percentage;
+      betting_settings_form.upline_percentage = betting_details.value.upline_percentage;
+      betting_settings_form.upline_generations = betting_details.value.upline_generations;
+
+      // console.log(electricity_settings_form.platform)
+      // console.log(dataPlansOptions.value[network])
+      openPage(19);
+    } else {
+      Swal.fire({
+        title: 'Ooops!',
+        html: 'Something went wrong',
+        icon: 'error',
+
+
+      });
+    }
+
+
+
+  } catch (error) {
+
+    Swal.close()
+    console.log(error);
+
+    if (error.response) {
+      // Request made but the server responded with an error
+      var status = error.response.status;
+      if (status == 419) {
+        document.location.reload()
+      }
+
+    } else if (error.request) {
+      // Request made but no response is received from the server.
+    } else {
+      // Error occured while setting up the request
+    }
+
+    Swal.fire({
+      title: 'Ooops!',
+      html: 'Something went wrong',
+      icon: 'error',
+
+
+    });
+  }
+
+};
+
+const clearBettingSettingsForm = () => {
+
+}
+
+const submitBettingSettingsForm = () => {
+  Swal.fire({
+    title: 'Proceed?',
+    html: `Are you sure you want to proceed with saving these settings?`,
+    icon: 'question',
+    showCancelButton: false,
+    showDenyButton: true,
+    confirmButtonColor: '#3085d6',
+    denyButtonColor: '#059669',
+    confirmButtonText: 'Yes Proceed?',
+    denyButtonText: "No"
+
+  }).then((result) => {
+    if (result.isConfirmed) {
+      if (!betting_settings_form.processing) {
+
+
+        betting_settings_form.post(route('save_betting_plans_settings'), {
+          preserveScroll: true,
+          onSuccess: (page) => {
+
+            var response = page.props.flash.data;
+            console.log(response)
+            if (response.success) {
+              Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: `Betting settings saved succesfully`,
+              })
+            } else {
+              Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: `Something went wrong`,
+              })
+            }
+
+          }, onError: (errors) => {
+            var size = Object.keys(errors).length;
+            // errors_size.value = size;
+            // console.log(errors_size.value)
+            Swal.fire({
+              icon: 'error',
+              title: 'Oops...',
+              text: size > 1 ? `There are ${size} form errors. Please fix them` : `There is ${size} form error. Please fix them`,
+            })
+          },
+
+        });
+      }
+
+
+    }
+  });
+}
+
 </script>
 
 <template inheritAttrs="false">
@@ -1652,6 +1842,63 @@ const manageVtuServices = async () => {
       <!-- <NotificationBar color="info" :icon="mdiMonitorCellphone">
         <b>Responsive table.</b> Collapses on mobile
       </NotificationBar> -->
+
+      <div v-if="current_page == 19" class="mt-[30px]">
+        <CardBox class="mb-6" @submit.prevent="submitBettingSettingsForm" isForm>
+          <h2 class="text-2xl font-semibold capitalize" v-html="`Manage ${betting_settings_form.company}`">
+          </h2>
+
+          <div class="sm:grid sm:grid-cols-12 sm:gap-6 mt-[50px]">
+            <FormField class="w-full sm:col-span-12 my-2" label="Select Platform" wrap-body>
+              <!-- <FormCheckRadioGroup v-model="betting_settings_form.platform"
+                :error="betting_settings_form.errors.platform" name="platform" :options="current_betting_plans_options"
+                type="radio" /> -->
+
+              <FormCheckRadioGroup @change="loadBettingPlanDetails(true, true)" v-model="betting_settings_form.platform"
+                :error="betting_settings_form.errors.platform" name="platform" :options="current_betting_plans_options"
+                type="radio" />
+
+
+            </FormField>
+
+            <FormField class="sm:col-span-4" label="Discount">
+              <FormControl v-model="betting_settings_form.discount" :error="betting_settings_form.errors.discount"
+                type="number" />
+            </FormField>
+
+            <!-- <h4 class="font-bold my-3 mb-2 text-xl col-span-12">Upline earnings</h4> -->
+
+            <FormField class="sm:col-span-4" label="Upline Percentage">
+              <FormControl v-model="betting_settings_form.upline_percentage" :error="betting_settings_form.errors.upline_percentage"
+                type="number" />
+            </FormField>
+
+            <FormField class="sm:col-span-4" label="Upline No. of generations">
+              <FormControl v-model="betting_settings_form.upline_generations" :error="betting_settings_form.errors.upline_generations"
+                type="number" />
+            </FormField>
+
+          </div>
+          <BaseButton :disabled="betting_settings_form.processing" type="submit" color="bg-green-600"
+            label="Save Settings" class="w-full text-white my-4 mt-6" />
+        </CardBox>
+      </div>
+
+      <div v-if="current_page == 18" class="mt-[30px]">
+        <CardBox class="mb-6">
+          <h2 class="text-2xl font-semibold">Choose Betting Company To Manage</h2>
+
+          <ul v-if="betting_companies.length > 0" class="divide-y-2 divide-gray-400 mt-[50px]">
+
+            <li v-for="(company, index) in betting_companies" @click="manageBettingOption(index)" class="listview-list"
+              :key="index">
+              <span class="font-semibold capitalize">{{ index + 1 }}. {{ company }}</span>
+            </li>
+
+
+          </ul>
+        </CardBox>
+      </div>
 
       <div v-if="current_page == 17" class="mt-[30px]">
         <CardBox class="mb-6">
@@ -1677,12 +1924,12 @@ const manageVtuServices = async () => {
 
           <div class="sm:grid sm:grid-cols-12 sm:gap-6 mt-[50px]">
             <FormField class="w-full sm:col-span-12 my-2" label="Select Platform" wrap-body>
-              <FormCheckRadioGroup v-model="electricity_settings_form.platform"
+              <!-- <FormCheckRadioGroup v-model="electricity_settings_form.platform"
                 :error="electricity_settings_form.errors.platform" name="platform" :options="current_electricity_plans_options"
-                type="radio" />
+                type="radio" /> -->
 
                 <FormCheckRadioGroup @change="loadElectricityPlanDetails(true, true)" v-model="electricity_settings_form.platform"
-                :error="electricity_settings_form.errors.platform" name="platform" :options="current_router_plans_options"
+                :error="electricity_settings_form.errors.platform" name="platform" :options="current_electricity_plans_options"
                 type="radio" />
 
 
@@ -2481,8 +2728,12 @@ const manageVtuServices = async () => {
               <span class="font-semibold ">5. Router Recharge </span>
             </li>
 
+            <li @click="manageBettingSettings" class="listview-list">
+              <span class="font-semibold ">6. Betting Recharge </span>
+            </li>
+
             <li @click="manageEductaionalSettings" class="listview-list">
-              <span class="font-semibold ">6. Educational Vouchers </span>
+              <span class="font-semibold ">7. Educational Vouchers </span>
             </li>
 
 
@@ -2513,6 +2764,19 @@ const manageVtuServices = async () => {
           </ul>
         </CardBox>
       </div>
+
+
+
+      <FloatingActionButton v-if="current_page == 18" @click="openPage(2)" :styles="'background: 9124a3;'"
+        :title="'Go Back'">
+        <font-awesome-icon class="text-white text-2xl" icon="fa-solid fa-arrow-left" />
+      </FloatingActionButton>
+
+      <FloatingActionButton v-if="current_page == 19" @click="openPage(18)" :styles="'background: 9124a3;'"
+        :title="'Go Back'">
+        <font-awesome-icon class="text-white text-2xl" icon="fa-solid fa-arrow-left" />
+      </FloatingActionButton>
+
 
       <FloatingActionButton v-if="current_page == 14" @click="openPage(13)" :styles="'background: 9124a3;'"
         :title="'Go Back'">

@@ -43,7 +43,9 @@ class AdminController extends Controller
     public $airtime_platforms;
     public $data_platforms;
     public $electricity_platforms;
+    public $betting_platforms;
     public $discos;
+    public $betting_companies;
     public $cable_platforms;
     public $router_platforms;
     public $educational_platforms;
@@ -58,6 +60,7 @@ class AdminController extends Controller
         $this->tvs = ['dstv', 'gotv', 'startimes'];
         $this->routers = ['smile', 'spectranet'];
         $this->educationals = ['waec', 'neco'];
+        $this->betting_companies = ['msport', 'bet9ja', 'bangbet', 'betking', '1xbet', 'betway', 'merrybet', 'naijabet', 'nairabet', 'betland', 'betlion', 'supabet', 'mlotto', 'western-lotto', 'hallabet', 'green-lotto'];
 
         $this->airtime_platforms = [
             'mtn' => ['gsubz' => 'gsubz', 'clubkonnect' => 'clubkonnect'],
@@ -115,6 +118,25 @@ class AdminController extends Controller
             'phc' => ['buypower' => 'buypower', 'payscribe' => 'payscribe', 'gsubz' => 'gsubz'],
         ];
 
+        $this->betting_platforms = [
+            'msport' => ['clubkonnect' => 'clubkonnect'],
+            'bet9ja' => ['clubkonnect' => 'clubkonnect'],
+            'bangbet' => ['clubkonnect' => 'clubkonnect'],
+            'betking' => ['clubkonnect' => 'clubkonnect'],
+            '1xbet' => ['clubkonnect' => 'clubkonnect'],
+            'betway' => ['clubkonnect' => 'clubkonnect'],
+            'merrybet' => ['clubkonnect' => 'clubkonnect'],
+            'naijabet' => ['clubkonnect' => 'clubkonnect'],
+            'nairabet' => ['clubkonnect' => 'clubkonnect'],
+            'betland' => ['clubkonnect' => 'clubkonnect'],
+            'betlion' => ['clubkonnect' => 'clubkonnect'],
+            'supabet' => ['clubkonnect' => 'clubkonnect'],
+            'mlotto' => ['clubkonnect' => 'clubkonnect'],
+            'western-lotto' => ['clubkonnect' => 'clubkonnect'],
+            'hallabet' => ['clubkonnect' => 'clubkonnect'],
+            'green-lotto' => ['clubkonnect' => 'clubkonnect'],
+        ];
+
 
         $this->accountingTypeOptions = [
             ['id'=> 1, 'label'=> '---All---'],
@@ -124,6 +146,7 @@ class AdminController extends Controller
             ['id'=> 5, 'label'=> 'Router'],
             ['id'=> 6, 'label'=> 'Educational'],
             ['id'=> 7, 'label'=> 'Electricity'],
+            ['id'=> 8, 'label'=> 'Betting'],
         ];
 
         $this->accountingDetailsParams = [
@@ -134,6 +157,8 @@ class AdminController extends Controller
             'router'=> ['smile' => ['clubkonnect'], 'spectranet' => ['clubkonnect']],
             'educational'=> ['waec' => ['clubkonnect', 'payscribe'], 'neco' => ['payscribe']],
             'electricity'=> ['abuja' => ['buypower', 'payscribe', 'gsubz'], 'eko' => ['buypower', 'payscribe', 'gsubz'], 'enugu' => ['buypower'], 'ibadan' => ['buypower', 'payscribe', 'gsubz'], 'ikeja' => ['buypower', 'payscribe', 'gsubz'], 'jos' => ['buypower', 'gsubz'], 'kaduna' => ['buypower', 'payscribe', 'gsubz'], 'kano' => ['buypower', 'gsubz'], 'phc' => ['buypower', 'payscribe', 'gsubz']],
+            'betting'=> ['msport' => ['clubkonnect'], 'bet9ja' => ['clubkonnect'], 'bangbet' => ['clubkonnect'], 'betking' => ['clubkonnect'], '1xbet' => ['clubkonnect'], 'betway' => ['clubkonnect'], 'merrybet' => ['clubkonnect'], 'naijabet' => ['clubkonnect'], 'nairabet' => ['clubkonnect'], 'betland' => ['clubkonnect'], 'betlion' => ['clubkonnect'], 'supabet' => ['clubkonnect'], 'mlotto' => ['clubkonnect'], 'western-lotto' => ['clubkonnect'], 'hallabet' => ['clubkonnect'], 'green-lotto' => ['clubkonnect']],
+
 
         ];
 
@@ -281,6 +306,7 @@ class AdminController extends Controller
         $props['data_platforms'] = $this->data_platforms;
         $props['electricity_platforms'] = $this->electricity_platforms;
         $props['cable_platforms'] = $this->cable_platforms;
+        $props['betting_platforms'] = $this->betting_platforms;
         $props['router_platforms'] = $this->router_platforms;
         $props['educational_platforms'] = $this->educational_platforms;
         $props['history_opened'] = $param1 == 'history' ? true : false;
@@ -776,6 +802,38 @@ class AdminController extends Controller
         return $history;
     }
 
+    public function saveBettingSettings(Request $request, User $user)
+    {
+        $response = ['success' => false];
+
+
+        $request->validate([
+            'company' => ['required', Rule::in($this->betting_companies)],
+            'platform' => ['required', Rule::in($this->betting_platforms[strtolower($request->company)])],
+            'discount' => 'required|numeric|max:100',
+            'upline_percentage' => 'required|numeric|max:100',
+            'upline_generations' => 'required|numeric|max:100',
+        ]);
+
+        $platform = $request->platform;
+
+        $this->functions->setCurrentPlatform('betting', $request->company, $platform);
+        $vtu_platform = VtuPlatform::where('name', "{$request->company}_betting")->first();
+        if(!is_null($vtu_platform)){
+
+
+            $vtu_platform->purchaser_percentage = $request->discount;
+            $vtu_platform->upline_percentage = $request->upline_percentage;
+            $vtu_platform->upline_generations = $request->upline_generations;
+            $vtu_platform->save();
+
+            $response['success'] = true;
+        }
+
+
+
+        return back()->with('data', $response);
+    }
 
     public function saveElectricitySettings(Request $request, User $user)
     {
@@ -829,6 +887,40 @@ class AdminController extends Controller
 
 
                 $vtu_plan = VtuPlatform::where('name', "{$disco}_electricity")->first();
+                if (!is_null($vtu_plan)) {
+
+
+                    $response['discount'] = $vtu_plan->purchaser_percentage;
+                    $response['upline_percentage'] = $vtu_plan->upline_percentage;
+                    $response['upline_generations'] = $vtu_plan->upline_generations;
+
+                    $response['success'] = true;
+                }
+            }
+        }
+
+        return $response;
+    }
+
+    public function loadBettingDetailsByNetwork(Request $request, User $user)
+    {
+        $response = ['success' => false, 'current_platform' => ''];
+
+        $post_data = (Object) $request->input();
+        // return json_encode($post_data);
+        if ($request->has('company') && $request->has('platform')) {
+            $company = $request->company;
+            $platform = $request->platform;
+
+            // return $disco;
+
+            if (in_array($company, $this->betting_companies) && in_array($platform, $this->betting_platforms[$company])) {
+
+                $current_platform = $this->functions->getVtuPlatformToUse('betting', $company);
+                $response['current_platform'] = $current_platform;
+
+
+                $vtu_plan = VtuPlatform::where('name', "{$company}_betting")->first();
                 if (!is_null($vtu_plan)) {
 
 

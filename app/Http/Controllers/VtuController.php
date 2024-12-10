@@ -22,6 +22,7 @@ class VtuController extends Controller
     public $networks;
     public $tvs;
     public $discos;
+    public $betting_companies;
     public $sms_charge;
 
     public function __construct()
@@ -35,6 +36,7 @@ class VtuController extends Controller
         $this->networks = ['mtn', 'glo', 'airtel', '9mobile'];
         $this->tvs = ['dstv', 'gotv', 'startimes'];
         $this->discos = ['abuja', 'eko', 'enugu', 'ibadan', 'ikeja', 'jos', 'kaduna', 'kano', 'phc'];
+        $this->betting_companies = ['msport', 'bet9ja', 'bangbet', 'betking', '1xbet', 'betway', 'merrybet', 'naijabet', 'nairabet', 'betland', 'betlion', 'supabet', 'mlotto', 'western-lotto', 'hallabet', 'green-lotto'];
     }
 
     public function viewElectricityReceipt(Request $request, VtuTransaction $transaction){
@@ -1575,6 +1577,27 @@ class VtuController extends Controller
 
     }
 
+
+
+    public function showBettingRechargePage(Request $request){
+        $user = Auth::user();
+
+        $props['user'] = $user;
+
+        $betting_companies = [];
+        for($i = 0; $i < count($this->betting_companies); $i++){
+            $company = $this->betting_companies[$i];
+            $betting_companies[$i] = [
+                'name' => $company,
+                'image' => "/images/{$company}.png",
+                'discount' => $this->functions->getDiscountForBettingByCompany($company),
+            ];
+        }
+        $props['betting_companies'] = $betting_companies;
+
+        return Inertia::render('Vtu/BettingRecharge',$props);
+    }
+
     public function showRouterRechargePage(Request $request){
         $user = Auth::user();
 
@@ -2588,6 +2611,102 @@ class VtuController extends Controller
     }
 
 
+    public function purchaseBettingWithClub(Request $request)
+    {
+        $date = date("j M Y");
+        $time = date("h:i:sa");
+        $user = Auth::user();
+        $post_data = (Object) $request->input();
+        // return json_encode($post_data);
+
+        $user_id = $user->id;
+
+
+
+        $response_arr = ['success' => false, 'messages' => '', 'insuffecient_funds' => false, 'order_id' => '',  'error_msg' => ''];
+
+        $validationRules = [
+            'company' => 'required|in:'. implode(",", $this->betting_companies),
+            'id_number' => 'required|numeric|digits_between:5,15',
+            'amount' => 'required|numeric|min:100|max:50000',
+
+        ];
+
+        $request->validate($validationRules);
+
+
+        $company = $request->company;
+        $id_number = $request->id_number;
+        $amount = $request->amount;
+
+
+
+
+
+        $amount_to_debit_user = $amount;
+        $user_total_amount = $this->functions->getUserTotalAmountByUse($user_id);
+
+        $vtu_plan = VtuPlatform::where('name', "{$company}_betting")->first();
+
+        $amount_deb_user = round($amount - (($vtu_plan->purchaser_percentage / 100) * $amount), 2);
+        // return $amount_deb_user;
+
+        if(!is_null($vtu_plan)){
+
+            if ($amount_deb_user <= $user_total_amount) {
+
+
+
+
+                $url = "https://www.nellobytesystems.com/APIBettingV1.asp?UserID=".$this->CLUB_USERID."&APIKey=".$this->CLUB_APIKEY."&BettingCompany=" . $company . "&CustomerID=" . $id_number . "&Amount=".$amount;
+
+
+                $use_post = false;
+                // $response = $this->functions->vtu_curl($url, $use_post, $post_data = []);
+
+                $response = '{"transactionid":"6637012364","transactiondate":"10/18/2024 7:45:51 AM","status":"ORDER_RECEIVED","productname":"bet9ja ","amount":"99.5999984741211","amountcredited":"","customerid":"20241527","paymentoption":"Wallet","walletbalance":"137258.712501526"}';
+
+                // return $response;
+                if ($this->functions->isJson($response)) {
+                    $response = json_decode($response);
+
+                    if($response->status == "ORDER_RECEIVED"){
+                        $summary = "Debit Of " . $amount_deb_user . " For Betting";
+                        if($this->functions->debitUser($user_id, $amount_deb_user, $summary)){
+                            $order_id = $response->transactionid;
+                            $form_array = array(
+                                'user_id' => $user_id,
+                                'service' => 'clubkonnect',
+                                'discount' => $vtu_plan->purchaser_percentage,
+                                'type' => 'betting',
+                                'sub_type' => $company,
+                                'date' => $date,
+                                'time' => $time,
+                                'amount' => $amount,
+                                'amount_debited' => $amount_deb_user,
+                                'number' => $id_number,
+                                'order_id' => $order_id,
+                                'response' => json_encode($response)
+                            );
+                            if($this->functions->addTransactionStatus($form_array)){
+                                $response_arr['success'] = true;
+                                $response_arr['order_id'] = $order_id;
+                                $response_arr['amount_debited'] = $amount_deb_user;
+                            }
+                        }
+                    }
+
+                }
+            } else {
+                $response_arr['insuffecient_funds'] = true;
+            }
+        }
+
+
+        return back()->with('data',$response_arr);
+
+    }
+
     public function purchaseElectricityWithBuypower(Request $request)
     {
         $date = date("j M Y");
@@ -3339,6 +3458,59 @@ class VtuController extends Controller
         }
 
 
+
+    }
+
+    public function validateIdNumberbettingCompany(Request $request)
+    {
+        $date = date("j M Y");
+        $time = date("h:i:sa");
+        $user = Auth::user();
+        // return json_encode($post_data);
+
+        $user_id = $user->id;
+        $response_arr = ['success' => false, 'customer_name' => '', 'invalid_user' => false, 'service' => ''];
+
+        $validationRules = [
+            'company' => 'required|in:'.implode(",", $this->betting_companies),
+            'id_number' => 'required|numeric|digits_between:5,15',
+            'amount' => 'required|numeric|min:100|max:50000',
+
+        ];
+
+        $request->validate($validationRules);
+
+
+
+        $company = $request->company;
+        $id_number = $request->id_number;
+        $amount = $request->amount;
+
+        $platform = $this->functions->getVtuPlatformToUse('betting', $company);
+        if ($platform == "clubkonnect") {
+
+            $url = "https://www.nellobytesystems.com/APIVerifyBettingV1.asp?UserID=".$this->CLUB_USERID."&APIKey=".$this->CLUB_APIKEY."&BettingCompany=" . $company . "&CustomerID=" . $id_number;
+
+            $use_post = false;
+            $response = $this->functions->vtu_curl($url, $use_post, $post_data = []);
+
+            // return $response;
+            if ($this->functions->isJson($response)) {
+                $response = json_decode($response);
+
+                if ($response->customer_name != "" && $response->customer_name != "Error, Invalid Customer ID") {
+                    $response_arr['success'] = true;
+                    $response_arr['customer_name'] = $response->customer_name;
+                }else {
+                    $response_arr['invalid_user'] = true;
+                }
+            }
+
+
+        }
+
+
+        return back()->with('data',$response_arr);
 
     }
 

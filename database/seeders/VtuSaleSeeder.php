@@ -340,6 +340,19 @@ class VtuSaleSeeder extends Seeder
         ]);
 
 
+        $betting_companies = ['msport', 'bet9ja', 'bangbet', 'betking', '1xbet', 'betway', 'merrybet', 'naijabet', 'nairabet', 'betland', 'betlion', 'supabet', 'mlotto', 'western-lotto', 'hallabet', 'green-lotto'];
+        foreach ($betting_companies as $company) {
+
+
+
+            VtuSale::create([
+                'type' => 'betting',
+                'service' => 'clubkonnect',
+                'network' => $company,
+            ]);
+        }
+
+
 
     }
 }

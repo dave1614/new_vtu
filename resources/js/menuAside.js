@@ -25,6 +25,7 @@ import {
   mdiLightningBoltOutline,
   mdiRouterWireless,
   mdiSchoolOutline,
+  mdiTicketPercent
 } from "@mdi/js";
 
 
@@ -109,6 +110,11 @@ export default [
     route: "router_recharge",
     icon: mdiRouterWireless,
     label: "Router Recharge",
+  },
+  {
+    route: "betting_recharge",
+    icon: mdiTicketPercent,
+    label: "Betting Recharge",
   },
   {
     route: "educational_vouchers",

@@ -339,6 +339,20 @@ class VtuProfitSeeder extends Seeder
             'network' => 'neco',
         ]);
 
+        $betting_companies = ['msport', 'bet9ja', 'bangbet', 'betking', '1xbet', 'betway', 'merrybet', 'naijabet', 'nairabet', 'betland', 'betlion', 'supabet', 'mlotto', 'western-lotto', 'hallabet', 'green-lotto'];
+        foreach ($betting_companies as $company) {
+
+
+            VtuProfit::create([
+                'type' => 'betting',
+                'service' => 'clubkonnect',
+                'network' => $company,
+            ]);
+
+
+        }
+
+
 
 
 
